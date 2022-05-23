@@ -41,8 +41,7 @@ feature_extractor = ViTFeatureExtractor.from_pretrained(model_checkpoint)
 torch_model = ViTForImageClassification.from_pretrained(model_checkpoint)
 
 from exporters import coreml
-mlmodel = coreml.export(torch_model, preprocessor=feature_extractor, quantize="float32")
-mlmodel.save("ViT.mlpackage")
+mlmodel = coreml.export(torch_model, preprocessor=feature_extractor, quantize="float16")
 ```
 
 Optionally fill in the model's metadata:
@@ -54,27 +53,31 @@ mlmodel.license = "Copyright by you"
 mlmodel.version = "1.0"
 ```
 
-You can add the resulting **mlpackage** file to your Xcode project and examine it there. 
-
-It's also possible to make predictions from Python using the exported model. For example:
+Finally, save the model. You can open the resulting **mlpackage** file in Xcode and examine it there. 
 
 ```python
-import requests, PIL.Image
-url = "http://images.cocodataset.org/val2017/000000039769.jpg"
-image = PIL.Image.open(requests.get(url, stream=True).raw)
-image_resized = image.resize((256, 256))
-
-outputs = mlmodel.predict({"image": image_resized})
-print(outputs["classLabel"])
+mlmodel.save("ViT.mlpackage")
 ```
 
 The arguments to `coreml.export()` are:
 
 - `model` (required): a PyTorch or TensorFlow model instance from the 🤗 Transformers library
 - `quantize` (optional): Whether to quantize the model weights. The possible quantization options are: `"float32"` (no quantization) or `"float16"` (for 16-bit floating point).
-- any model-specific arguments
+- Any model-specific arguments. For image models, this usually includes the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
 
-For image models, the model-specific arguments usually include the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
+When doing the Core ML export on a Mac, it's possible to make predictions from Python using the exported model. For example:
+
+```python
+import requests, PIL.Image
+url = "http://images.cocodataset.org/val2017/000000039769.jpg"
+image = PIL.Image.open(requests.get(url, stream=True).raw)
+image_resized = image.resize((224, 224))
+
+outputs = mlmodel.predict({"image": image_resized})
+print(outputs["classLabel"])
+```
+
+This is useful for verifying that the exported model indeed works as expected!
 
 ## TensorFlow Lite
 
@@ -118,35 +121,33 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 ### MobileViT
 
-- `preprocessor`. The `MobileViTFeatureExtractor` object for the trained model.
+- `preprocessor` (required). The `MobileViTFeatureExtractor` object for the trained model.
 
 ### OpenAI GPT2
 
-- `sequence_length`. The input tensor has shape `(batch, sequence length, vocab size)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 64.
+- `sequence_length` (required). The input tensor has shape `(batch, sequence length, vocab size)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 64.
 
 ### ViT
 
-- `preprocessor`. The `ViTFeatureExtractor` object for the trained model.
+- `preprocessor` (required). The `ViTFeatureExtractor` object for the trained model.
 
 ## Exporting to Core ML
 
 The `exporters.coreml` module uses the [coremltools](https://coremltools.readme.io/docs) package to perform the conversion from PyTorch or TensorFlow to Core ML format.
 
-The exported Core ML models use the **mlpackage** format with the **ML Program** model type. This new format was introduced in 2021 and requires at least iOS 15, macOS 12.0, and Xcode 13. While it might still be possible to convert certain models to the older NeuralNetwork format, we do not explicitly support this.
+The exported Core ML models use the **mlpackage** format with the **ML Program** model type. This format was introduced in 2021 and requires at least iOS 15, macOS 12.0, and Xcode 13. While it might still be possible to convert certain models to the older NeuralNetwork format, we do not explicitly support this.
 
 Additional notes:
 
-- The converter returns a `coremltools.models.MLModel` object. You are supposed to save this to a **.mlpackage** file yourself. You can also modify the generated model afterwards with coremltools, for example to rename the inputs and outputs.
-
-- Image models will automatically perform image preprocessing as part of the model.
+- Image models will automatically perform image preprocessing as part of the model. You do not need to preprocess the image yourself, except potentially resizing or cropping it.
 
 - Text models will require manual tokenization of the input data. Core ML does not have its own tokenization support.
 
-- For classification models, a softmax layer is automatically added and the labels are included in the `MLModel` object. 
+- For classification models, a softmax layer is added during the conversion process and the labels are included in the `MLModel` object. 
 
 - For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata.
 
-- ML Programs currently only support 16-bit float quantization, not integer quantization.
+- ML Programs currently only support 16-bit float quantization, not integer quantization. This is a limitation of Core ML.
 
 ## Exporting to TensorFlow Lite
 
