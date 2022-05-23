@@ -1,0 +1,2 @@
+transformers>=4.19
+coremltools>=5.0
