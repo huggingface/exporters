@@ -17,6 +17,7 @@ from typing import Optional
 
 import coremltools as ct
 
+from transformers import BertForQuestionAnswering
 from transformers import DistilBertForQuestionAnswering
 from transformers import GPT2LMHeadModel
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
@@ -44,7 +45,7 @@ def export(model, quantize: str = "float32", **kwargs) -> Optional[ct.models.MLM
 
     kwargs["quantize"] = quantize
 
-    if model_type == DistilBertForQuestionAnswering:
+    if model_type in [BertForQuestionAnswering, DistilBertForQuestionAnswering]:
         from .models import distilbert
         return distilbert.export(model, **kwargs)
 

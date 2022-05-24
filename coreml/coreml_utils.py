@@ -18,6 +18,7 @@ import coremltools as ct
 
 
 def get_output_names(spec):
+    """Return a list of all output names in the Core ML model."""
     outputs = []
     for out in spec.description.output:
         outputs.append(out.name)
@@ -25,6 +26,7 @@ def get_output_names(spec):
 
 
 def get_output_named(spec, name):
+    """Return the output node with the given name in the Core ML model."""
     for out in spec.description.output:
         if out.name == name:
             return out
@@ -32,14 +34,25 @@ def get_output_named(spec, name):
 
 
 def set_multiarray_shape(node, shape):
+    """Change the shape of the specified input or output in the Core ML model."""
     del node.type.multiArrayType.shape[:]
     for x in shape:
         node.type.multiArrayType.shape.append(x)
 
 
 def get_labels_as_list(model):
+    """Return the labels of a classifier model as a sorted list."""
     labels = []
     for i in range(len(model.config.id2label)):
         if i in model.config.id2label.keys():
             labels.append(model.config.id2label[i])    
     return labels
+
+
+def is_any_instance(obj, classes):
+    """Determine whether the object is an instance or subclass of at least one of 
+    the specified classes."""
+    for cls in classes:
+        if isinstance(obj, cls):
+            return True
+    return False

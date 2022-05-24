@@ -132,6 +132,7 @@ Currently, the following PyTorch models can be exported:
 
 | Model | Types | Core ML |
 |-------|-------| --------|
+| [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ | 
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2) | `GPT2LMHeadModel` | ✅ |
@@ -149,7 +150,7 @@ Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not 
 
 Pass these additional options into `coreml.export()` or `tflite.export()`.
 
-### DistilBERT
+### BERT, DistilBERT
 
 - `tokenizer` (required). The `DistilBertTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.

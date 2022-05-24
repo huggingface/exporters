@@ -19,7 +19,7 @@ import coremltools as ct
 import torch
 from torch import nn
 
-from transformers import DistilBertTokenizer, DistilBertForQuestionAnswering
+from transformers import PreTrainedTokenizerBase, BertForQuestionAnswering, DistilBertForQuestionAnswering
 from ..coreml_utils import *
 
 
@@ -31,7 +31,7 @@ class Wrapper(torch.nn.Module):
     def forward(self, inputs):
         outputs = self.model(inputs)
 
-        if isinstance(self.model, DistilBertForQuestionAnswering):
+        if is_any_instance(self.model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
             start_scores = nn.functional.softmax(outputs.start_logits, dim=1)
             end_scores = nn.functional.softmax(outputs.end_logits, dim=1)
             return start_scores, end_scores
@@ -41,11 +41,11 @@ class Wrapper(torch.nn.Module):
 
 def export(
     torch_model, 
-    tokenizer: DistilBertTokenizer,
+    tokenizer: PreTrainedTokenizerBase,
     sequence_length: int = 64, 
     quantize: str = "float32"
 ) -> ct.models.MLModel:
-    if not isinstance(tokenizer, DistilBertTokenizer):
+    if not isinstance(tokenizer, PreTrainedTokenizerBase):
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
 
     example_input = torch.randint(tokenizer.vocab_size, (1, sequence_length))
@@ -69,7 +69,7 @@ def export(
     if torch_model.config.transformers_version:
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
-    if isinstance(torch_model, DistilBertForQuestionAnswering):
+    if is_any_instance(torch_model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
         # Rename the outputs and fill in their shapes.
         output = spec.description.output[0]
         ct.utils.rename_feature(spec, output.name, "start_scores")
