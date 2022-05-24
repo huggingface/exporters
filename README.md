@@ -89,13 +89,33 @@ TODO
 
 ## Pushing the model to the Hugging Face Hub
 
-The [Hugging Face Hub](https://huggingface.co) can also host your Core ML and TF Lite models.
+The [Hugging Face Hub](https://huggingface.co) can also host your Core ML and TF Lite models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
 
-To push the converted model to the Hugging Face Hub:
+First log in to your Hugging Face account account with the following command:
+
+```bash
+huggingface-cli login
+```
+
+Alternatively, if you prefer working from a Jupyter or Colaboratory notebook, log in with `notebook_login()`. This will launch a widget in your notebook from which you can enter your Hugging Face credentials.
 
 ```python
-TODO
+from huggingface_hub import notebook_login
+notebook_login()
 ```
+
+Once you are logged in, save the **mlpackage** to the Hub as follows:
+
+```python
+from huggingface_hub import Repository
+
+with Repository(
+        "<model name>", clone_from="https://huggingface.co/<user>/<model name>",
+        use_auth_token=True).commit(commit_message="add Core ML model"):
+    mlmodel.save("<model name>.mlpackage")
+```
+
+Make sure to replace `<model name>` with the name of the model and `<user>` with your Hugging Face username.
 
 ## Supported models
 
