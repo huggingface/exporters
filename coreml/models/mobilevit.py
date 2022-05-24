@@ -82,9 +82,9 @@ def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str =
 
     spec = mlmodel._spec
 
-    user_defined_metadata = {
-        "transformers_version": torch_model.config.transformers_version,
-    }
+    user_defined_metadata = {}
+    if torch_model.config.transformers_version:
+        user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
     if isinstance(torch_model, MobileViTForImageClassification):
         mlmodel.input_description["image"] = "Image to be classified"
@@ -123,7 +123,8 @@ def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str =
         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), hidden_shape)
         set_multiarray_shape(get_output_named(spec, "pooler_output"), pooler_shape)
 
-    spec.description.metadata.userDefined.update(user_defined_metadata)
+    if len(user_defined_metadata) > 0:
+        spec.description.metadata.userDefined.update(user_defined_metadata)
 
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)

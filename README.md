@@ -65,7 +65,16 @@ The arguments to `coreml.export()` are:
 - `quantize` (optional): Whether to quantize the model weights. The possible quantization options are: `"float32"` (no quantization) or `"float16"` (for 16-bit floating point).
 - Any model-specific arguments. For image models, this usually includes the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
 
+**Note:** It's normal for the conversion process to output warning messages. You can safely ignore these. As long as the output from `coreml.export()` is a `MLModel` object, the conversion was successful. If the conversion failed, `coreml.export()` returns `None` or raises an exception.
+
 When doing the Core ML export on a Mac, it's possible to make predictions from Python using the exported model. For example:
+
+```python
+input_ids = np.array([ ... ], dtype=np.int32)
+outputs = mlmodel.predict({"input_ids": input_ids})
+```
+
+Vision models take a `PIL` image as input:
 
 ```python
 import requests, PIL.Image
@@ -123,6 +132,7 @@ Currently, the following PyTorch models can be exported:
 
 | Model | Types | Core ML |
 |-------|-------| --------|
+| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2) | `GPT2LMHeadModel` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification` | ✅ |
@@ -138,6 +148,11 @@ Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not 
 ## Model-specific conversion options
 
 Pass these additional options into `coreml.export()` or `tflite.export()`.
+
+### DistilBERT
+
+- `tokenizer` (required). The `DistilBertTokenizer` object for the trained model.
+- `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
 
 ### MobileViT
 

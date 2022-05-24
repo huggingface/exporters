@@ -17,9 +17,10 @@ from typing import Optional
 
 import coremltools as ct
 
+from transformers import DistilBertForQuestionAnswering
 from transformers import GPT2LMHeadModel
-from transformers import ViTModel, ViTForImageClassification
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
+from transformers import ViTModel, ViTForImageClassification
 from transformers.utils import logging
 
 
@@ -43,17 +44,21 @@ def export(model, quantize: str = "float32", **kwargs) -> Optional[ct.models.MLM
 
     kwargs["quantize"] = quantize
 
-    if model_type == GPT2LMHeadModel:
+    if model_type == DistilBertForQuestionAnswering:
+        from .models import distilbert
+        return distilbert.export(model, **kwargs)
+
+    elif model_type == GPT2LMHeadModel:
         from .models import gpt2
         return gpt2.export(model, **kwargs)
-
-    elif model_type in [ViTModel, ViTForImageClassification]:
-        from .models import vit
-        return vit.export(model, **kwargs)
 
     elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
         from .models import mobilevit
         return mobilevit.export(model, **kwargs)
+
+    elif model_type in [ViTModel, ViTForImageClassification]:
+        from .models import vit
+        return vit.export(model, **kwargs)
 
     logger.warning("Cannot convert unknown model type: " + str(model_type))
     return None

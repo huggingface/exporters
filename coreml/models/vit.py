@@ -84,9 +84,9 @@ def export(torch_model, preprocessor: ViTFeatureExtractor, quantize: str = "floa
 
     spec = mlmodel._spec
 
-    user_defined_metadata = {
-        "transformers_version": torch_model.config.transformers_version,
-    }
+    user_defined_metadata = {}
+    if torch_model.config.transformers_version:
+        user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
     if isinstance(torch_model, ViTForImageClassification):
         mlmodel.input_description["image"] = "Image to be classified"
@@ -118,7 +118,8 @@ def export(torch_model, preprocessor: ViTFeatureExtractor, quantize: str = "floa
         mlmodel.input_description["image"] = "Image to be classified"
         mlmodel.output_description["hidden_states"] = "Hidden states from the last layer"
 
-    spec.description.metadata.userDefined.update(user_defined_metadata)
+    if len(user_defined_metadata) > 0:
+        spec.description.metadata.userDefined.update(user_defined_metadata)
 
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)
