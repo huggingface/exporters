@@ -35,3 +35,11 @@ def set_multiarray_shape(node, shape):
     del node.type.multiArrayType.shape[:]
     for x in shape:
         node.type.multiArrayType.shape.append(x)
+
+
+def get_labels_as_list(model):
+    labels = []
+    for i in range(len(model.config.id2label)):
+        if i in model.config.id2label.keys():
+            labels.append(model.config.id2label[i])    
+    return labels
