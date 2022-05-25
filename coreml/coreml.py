@@ -25,7 +25,7 @@ from transformers import ViTModel, ViTForImageClassification
 from transformers.utils import logging
 
 
-def export(model, quantize: str = "float32", **kwargs) -> Optional[ct.models.MLModel]:
+def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> Optional[ct.models.MLModel]:
     """Convert the Hugging Face Transformers model to Core ML format.
 
     Args:
@@ -33,6 +33,9 @@ def export(model, quantize: str = "float32", **kwargs) -> Optional[ct.models.MLM
             A trained PyTorch or TensorFlow model.
         quantize (`str`, *optional*, defaults to `"float32"`):
             Quantization options. Possible values: `"float32"`, `"float16"`.
+        legacy (`bool`, *optional*, defaults to `False`):
+            If `True`, the converter will produce a model in the older NeuralNetwork format.
+            By default, the ML Program format will be used.
 
     Additional arguments depend on the model.
 
@@ -44,6 +47,7 @@ def export(model, quantize: str = "float32", **kwargs) -> Optional[ct.models.MLM
     model_type = type(model)
 
     kwargs["quantize"] = quantize
+    kwargs["legacy"] = legacy
 
     if model_type in [BertForQuestionAnswering, DistilBertForQuestionAnswering]:
         from .models import distilbert

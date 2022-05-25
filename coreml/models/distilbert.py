@@ -14,10 +14,11 @@
 """Core ML conversion for DistilBert."""
 
 import numpy as np
-import coremltools as ct
-
 import torch
 from torch import nn
+
+import coremltools as ct
+from coremltools.models.neural_network import quantization_utils
 
 from transformers import PreTrainedTokenizerBase, BertForQuestionAnswering, DistilBertForQuestionAnswering
 from ..coreml_utils import *
@@ -43,23 +44,25 @@ def export(
     torch_model, 
     tokenizer: PreTrainedTokenizerBase,
     sequence_length: int = 64, 
-    quantize: str = "float32"
+    quantize: str = "float32",
+    legacy: bool = False,
 ) -> ct.models.MLModel:
     if not isinstance(tokenizer, PreTrainedTokenizerBase):
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
 
     example_input = torch.randint(tokenizer.vocab_size, (1, sequence_length))
 
-    wrapper = Wrapper(torch_model)
+    wrapper = Wrapper(torch_model).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=False)
 
     convert_kwargs = {}
+    if not legacy:
+        convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
     mlmodel = ct.convert(
         traced_model,
         inputs=[ct.TensorType(name="input_ids", shape=example_input.shape, dtype=np.int32)],
-        convert_to="mlprogram",
-        compute_precision=ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32,
+        convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
 
@@ -88,5 +91,8 @@ def export(
 
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)
+
+    if legacy and quantize == "float16":
+        mlmodel = quantization_utils.quantize_weights(mlmodel, nbits=16)
 
     return mlmodel

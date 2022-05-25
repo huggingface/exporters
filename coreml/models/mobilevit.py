@@ -14,10 +14,11 @@
 """Core ML conversion for MobileViT."""
 
 import numpy as np
-import coremltools as ct
-
 import torch
 from torch import nn
+
+import coremltools as ct
+from coremltools.models.neural_network import quantization_utils
 
 from transformers import MobileViTFeatureExtractor, MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from ..coreml_utils import *
@@ -50,22 +51,30 @@ class Wrapper(torch.nn.Module):
         return None
 
 
-def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str = "float32") -> ct.models.MLModel:
-    if not isinstance(preprocessor, MobileViTFeatureExtractor):
-        raise ValueError(f"Unknown preprocessor: {preprocessor}")
+def export(
+    torch_model, 
+    feature_extractor: MobileViTFeatureExtractor, 
+    quantize: str = "float32",
+    legacy: bool = False,
+) -> ct.models.MLModel:
+    if not isinstance(feature_extractor, MobileViTFeatureExtractor):
+        raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model)
+    wrapper = Wrapper(torch_model).eval()
 
     scale = 1.0 / 255
     bias = [ 0.0, 0.0, 0.0 ]
 
-    image_size = preprocessor.crop_size
+    image_size = feature_extractor.crop_size
     image_shape = (1, 3, image_size, image_size)
     example_input = torch.rand(image_shape) * 2.0 - 1.0
 
     traced_model = torch.jit.trace(wrapper, example_input, strict=False)
 
     convert_kwargs = { }
+    if not legacy:
+        convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
+
     if isinstance(torch_model, MobileViTForImageClassification):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
@@ -75,8 +84,7 @@ def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str =
         traced_model,
         inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias, 
                              color_layout="BGR", channel_first=True)],
-        convert_to="mlprogram",
-        compute_precision=ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32,
+        convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
 
@@ -87,8 +95,12 @@ def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str =
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
     if isinstance(torch_model, MobileViTForImageClassification):
+        probs_output_name = spec.description.predictedProbabilitiesName
+        ct.utils.rename_feature(spec, probs_output_name, "probabilities")
+        spec.description.predictedProbabilitiesName = "probabilities"
+
         mlmodel.input_description["image"] = "Image to be classified"
-        mlmodel.output_description["classLabel_probs"] = "Probability of each category"
+        mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
     if isinstance(torch_model, MobileViTForSemanticSegmentation):
@@ -128,5 +140,8 @@ def export(torch_model, preprocessor: MobileViTFeatureExtractor, quantize: str =
 
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)
+
+    if legacy and quantize == "float16":
+        mlmodel = quantization_utils.quantize_weights(mlmodel, nbits=16)
 
     return mlmodel
