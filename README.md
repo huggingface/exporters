@@ -148,6 +148,12 @@ The following TensorFlow models can be exported:
 
 Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not supported.
 
+## Unsupported models
+
+The following models are known to give errors when attempting conversion to Core ML format:
+
+- [Swin Transformer](https://huggingface.co/docs/transformers/model_doc/swin). PyTorch JIT trace fails.
+
 ## Model-specific conversion options
 
 Pass these additional options into `coreml.export()` or `tflite.export()`.
