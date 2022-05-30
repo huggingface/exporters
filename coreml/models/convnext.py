@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Core ML conversion for Vision Transformer (ViT)."""
+"""Core ML conversion for ConvNeXT."""
 
 import numpy as np
 import torch
@@ -20,51 +20,54 @@ from torch import nn
 import coremltools as ct
 from coremltools.models.neural_network import quantization_utils
 
-from transformers import ViTFeatureExtractor, ViTModel, ViTForImageClassification
+from transformers import ConvNextFeatureExtractor, ConvNextModel, ConvNextForImageClassification
 from ..coreml_utils import *
 
 
-# Note: the ViTForImageClassification model has the usual `classLabel` and
+# Note: the ConvNextForImageClassification model has the usual `classLabel` and
 # `probabilities` outputs, but also a hidden `var_xxx` output with the softmax 
 # results. Not sure why, but it doesn't hurt anything to keep it.
 
 
 class Wrapper(torch.nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, feature_extractor):
         super().__init__()
         self.model = model.eval()
+        self.feature_extractor = feature_extractor
 
     def forward(self, inputs):
+        # Core ML's image preprocessing does not allow a different
+        # scaling factor for each color channel, so do this manually.
+        image_std = torch.tensor(self.feature_extractor.image_std).reshape(1, -1, 1, 1)
+        inputs = inputs / image_std
+
         outputs = self.model(inputs)
 
-        if isinstance(self.model, ViTForImageClassification):
+        if isinstance(self.model, ConvNextForImageClassification):
             return nn.functional.softmax(outputs.logits, dim=1)
 
-        if isinstance(self.model, ViTModel):
-            if self.model.pooler is not None:
-                return outputs.last_hidden_state, outputs.pooler_output
-            else:
-                return outputs.last_hidden_state
+        if isinstance(self.model, ConvNextModel):
+            return outputs.last_hidden_state, outputs.pooler_output
 
         return None
     
 
 def export(
     torch_model, 
-    feature_extractor: ViTFeatureExtractor, 
+    feature_extractor: ConvNextFeatureExtractor, 
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
-    if not isinstance(feature_extractor, ViTFeatureExtractor):
+    if not isinstance(feature_extractor, ConvNextFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model).eval()
+    wrapper = Wrapper(torch_model, feature_extractor).eval()
 
-    scale = 1.0 / (feature_extractor.image_std[0] * 255)
+    scale = 1.0 / 255
     bias = [
-        -feature_extractor.image_mean[0] / feature_extractor.image_std[0],
-        -feature_extractor.image_mean[1] / feature_extractor.image_std[1],
-        -feature_extractor.image_mean[2] / feature_extractor.image_std[2],
+        -feature_extractor.image_mean[0],
+        -feature_extractor.image_mean[1],
+        -feature_extractor.image_mean[2],
     ]
 
     image_size = feature_extractor.size
@@ -77,7 +80,7 @@ def export(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if isinstance(torch_model, ViTForImageClassification):
+    if isinstance(torch_model, ConvNextForImageClassification):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
@@ -96,7 +99,7 @@ def export(
     if torch_model.config.transformers_version:
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
-    if isinstance(torch_model, ViTForImageClassification):
+    if isinstance(torch_model, ConvNextForImageClassification):
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
         spec.description.predictedProbabilitiesName = "probabilities"
@@ -105,30 +108,23 @@ def export(
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
-    if isinstance(torch_model, ViTModel):
+    if isinstance(torch_model, ConvNextModel):
         # Rename the output from the pooler.
-        if torch_model.pooler is not None:
-            output_names = get_output_names(spec)
-            for output_name in output_names:
-                if output_name != "hidden_states":
-                    ct.utils.rename_feature(spec, output_name, "pooler_output")
+        output_names = get_output_names(spec)
+        for output_name in output_names:
+            if output_name != "last_hidden_state":
+                ct.utils.rename_feature(spec, output_name, "pooler_output")
 
         # Fill in the shapes for the output tensors.
         with torch.no_grad():
             temp = traced_model(example_input)
 
-        if torch_model.pooler is not None:
-            hidden_shape = temp[0].shape
-            pooler_shape = temp[1].shape
-            set_multiarray_shape(get_output_named(spec, "hidden_states"), hidden_shape)
-            set_multiarray_shape(get_output_named(spec, "pooler_output"), pooler_shape)            
-            mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
-        else:
-            hidden_shape = temp.shape
-            set_multiarray_shape(get_output_named(spec, "hidden_states"), hidden_shape)
+        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), temp[0].shape)
+        set_multiarray_shape(get_output_named(spec, "pooler_output"), temp[1].shape)            
 
         mlmodel.input_description["image"] = "Image to be classified"
-        mlmodel.output_description["hidden_states"] = "Hidden states from the last layer"
+        mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
+        mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)

@@ -25,7 +25,7 @@ from ..coreml_utils import *
 
 
 # Note: the MobileViTForImageClassification model has the usual `classLabel` 
-# and `classLabel_probs` outputs, but also a hidden `var_1385` output with the 
+# and `probabilities` outputs, but also a hidden `var_xxx` output with the 
 # softmax results. Not sure why, but it doesn't hurt anything to keep it.
 
 

@@ -18,6 +18,7 @@ from typing import Optional
 import coremltools as ct
 
 from transformers import BertForQuestionAnswering
+from transformers import ConvNextModel, ConvNextForImageClassification
 from transformers import DistilBertForQuestionAnswering
 from transformers import GPT2LMHeadModel
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
@@ -52,6 +53,10 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     if model_type in [BertForQuestionAnswering, DistilBertForQuestionAnswering]:
         from .models import distilbert
         return distilbert.export(model, **kwargs)
+
+    elif model_type in [ConvNextModel, ConvNextForImageClassification]:
+        from .models import convnext
+        return convnext.export(model, **kwargs)
 
     elif model_type == GPT2LMHeadModel:
         from .models import gpt2

@@ -134,6 +134,7 @@ Currently, the following PyTorch models can be exported:
 | Model | Types | Core ML |
 |-------|-------| --------|
 | [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ | 
+| [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ | 
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
