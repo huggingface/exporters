@@ -163,6 +163,10 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 - `tokenizer` (required). The `(Distil)BertTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
 
+### ConvNeXT
+
+- `feature_extractor` (required). The `ConvNextFeatureExtractor` object for the trained model.
+
 ### MobileViT
 
 - `feature_extractor` (required). The `MobileViTFeatureExtractor` object for the trained model.
