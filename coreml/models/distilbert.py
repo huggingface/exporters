@@ -53,7 +53,7 @@ def export(
     example_input = torch.randint(tokenizer.vocab_size, (1, sequence_length))
 
     wrapper = Wrapper(torch_model).eval()
-    traced_model = torch.jit.trace(wrapper, example_input, strict=False)
+    traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
     convert_kwargs = {}
     if not legacy:

@@ -24,11 +24,6 @@ from transformers import MobileViTFeatureExtractor, MobileViTModel, MobileViTFor
 from ..coreml_utils import *
 
 
-# Note: the MobileViTForImageClassification model has the usual `classLabel` 
-# and `probabilities` outputs, but also a hidden `var_xxx` output with the 
-# softmax results. Not sure why, but it doesn't hurt anything to keep it.
-
-
 class Wrapper(torch.nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -69,7 +64,7 @@ def export(
     image_shape = (1, 3, image_size, image_size)
     example_input = torch.rand(image_shape) * 2.0 - 1.0
 
-    traced_model = torch.jit.trace(wrapper, example_input, strict=False)
+    traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
     convert_kwargs = { }
     if not legacy:

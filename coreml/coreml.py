@@ -19,6 +19,7 @@ import coremltools as ct
 
 from transformers import BertForQuestionAnswering
 from transformers import ConvNextModel, ConvNextForImageClassification
+from transformers import CvtModel, CvtForImageClassification
 from transformers import DistilBertForQuestionAnswering
 from transformers import GPT2LMHeadModel
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
@@ -57,6 +58,10 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     elif model_type in [ConvNextModel, ConvNextForImageClassification]:
         from .models import convnext
         return convnext.export(model, **kwargs)
+
+    elif model_type in [CvtModel, CvtForImageClassification]:
+        from .models import cvt
+        return cvt.export(model, **kwargs)
 
     elif model_type == GPT2LMHeadModel:
         from .models import gpt2

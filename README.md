@@ -135,6 +135,7 @@ Currently, the following PyTorch models can be exported:
 |-------|-------| --------|
 | [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ | 
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ | 
+| [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ | 
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
@@ -152,7 +153,7 @@ Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not 
 
 The following models are known to give errors when attempting conversion to Core ML format:
 
-- [Swin Transformer](https://huggingface.co/docs/transformers/model_doc/swin). PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.
+- [Swin Transformer](https://huggingface.co/docs/transformers/model_doc/swin). The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.
 
 ## Model-specific conversion options
 
@@ -163,7 +164,7 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 - `tokenizer` (required). The `(Distil)BertTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
 
-### ConvNeXT
+### ConvNeXT, CvT
 
 - `feature_extractor` (required). The `ConvNextFeatureExtractor` object for the trained model.
 
@@ -200,6 +201,8 @@ Additional notes:
 - For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata.
 
 - ML Programs currently only support 16-bit float quantization, not integer quantization. This is a limitation of Core ML.
+
+- Image classifier models have the usual `classLabel` and `probabilities` outputs, but also a "hidden" `var_xxx` output with the softmax results. This appears to be a minor bug in the converter; it doesn't hurt anything to keep this extra output.
 
 ## Exporting to TensorFlow Lite
 

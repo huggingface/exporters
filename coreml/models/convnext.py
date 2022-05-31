@@ -24,11 +24,6 @@ from transformers import ConvNextFeatureExtractor, ConvNextModel, ConvNextForIma
 from ..coreml_utils import *
 
 
-# Note: the ConvNextForImageClassification model has the usual `classLabel` and
-# `probabilities` outputs, but also a hidden `var_xxx` output with the softmax 
-# results. Not sure why, but it doesn't hurt anything to keep it.
-
-
 class Wrapper(torch.nn.Module):
     def __init__(self, model, feature_extractor):
         super().__init__()
@@ -74,7 +69,7 @@ def export(
     image_shape = (1, 3, image_size, image_size)
     example_input = torch.rand(image_shape) * 2.0 - 1.0
 
-    traced_model = torch.jit.trace(wrapper, example_input, strict=False)
+    traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
     convert_kwargs = { }
     if not legacy:
@@ -122,7 +117,7 @@ def export(
         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), temp[0].shape)
         set_multiarray_shape(get_output_named(spec, "pooler_output"), temp[1].shape)            
 
-        mlmodel.input_description["image"] = "Image to be classified"
+        mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
         mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
 
