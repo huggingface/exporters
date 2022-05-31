@@ -152,7 +152,7 @@ Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not 
 
 The following models are known to give errors when attempting conversion to Core ML format:
 
-- [Swin Transformer](https://huggingface.co/docs/transformers/model_doc/swin). PyTorch JIT trace fails.
+- [Swin Transformer](https://huggingface.co/docs/transformers/model_doc/swin). PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.
 
 ## Model-specific conversion options
 
