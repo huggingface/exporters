@@ -23,6 +23,7 @@ from transformers import CvtModel, CvtForImageClassification
 from transformers import DistilBertForQuestionAnswering
 from transformers import GPT2LMHeadModel
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
+from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
 from transformers import ViTModel, ViTForImageClassification
 from transformers.utils import logging
 
@@ -70,6 +71,10 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
         from .models import mobilevit
         return mobilevit.export(model, **kwargs)
+
+    elif model_type in [SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation]:
+        from .models import segformer
+        return segformer.export(model, **kwargs)
 
     elif model_type in [ViTModel, ViTForImageClassification]:
         from .models import vit

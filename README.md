@@ -139,6 +139,7 @@ Currently, the following PyTorch models can be exported:
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
+| [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification` | ✅ |
 
 The following TensorFlow models can be exported:
@@ -178,6 +179,10 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 - `tokenizer` (required). The `GPT2Tokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length, vocab size)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 64.
 - `legacy=True`. This model needs to be exported as NeuralNetwork; it currently does not work correctly as ML Program.
+
+### SegFormer
+
+- `feature_extractor` (required). The `SegformerFeatureExtractor` object for the trained model.
 
 ### ViT
 
