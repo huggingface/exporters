@@ -13,6 +13,7 @@
 # limitations under the License.
 """Core ML conversion for MobileViT."""
 
+import json
 import numpy as np
 import torch
 from torch import nn
@@ -25,9 +26,11 @@ from ..coreml_utils import *
 
 
 class Wrapper(torch.nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, do_upsample, do_argmax):
         super().__init__()
         self.model = model.eval()
+        self.do_upsample = do_upsample
+        self.do_argmax = do_argmax
 
     def forward(self, inputs):
         outputs = self.model(inputs)
@@ -36,8 +39,11 @@ class Wrapper(torch.nn.Module):
             return nn.functional.softmax(outputs.logits, dim=1)
 
         if isinstance(self.model, MobileViTForSemanticSegmentation):
-            x = nn.functional.interpolate(outputs.logits, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
-            x = x.argmax(1)
+            x = outputs.logits
+            if self.do_upsample:
+                x = nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
+            if self.do_argmax:
+                x = x.argmax(1)
             return x
 
         if isinstance(self.model, MobileViTModel):
@@ -49,13 +55,15 @@ class Wrapper(torch.nn.Module):
 def export(
     torch_model, 
     feature_extractor: MobileViTFeatureExtractor, 
+    do_upsample: bool = True,
+    do_argmax: bool = True,
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
     if not isinstance(feature_extractor, MobileViTFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model).eval()
+    wrapper = Wrapper(torch_model, do_upsample, do_argmax).eval()
 
     scale = 1.0 / 255
     bias = [ 0.0, 0.0, 0.0 ]
@@ -99,16 +107,27 @@ def export(
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
     if isinstance(torch_model, MobileViTForSemanticSegmentation):
-        # Rename the segmentation output and fill in its shape.
+        new_output_name = "classLabels" if do_argmax else "probabilities"
+
+        # Rename the segmentation output.
         output = spec.description.output[0]
-        ct.utils.rename_feature(spec, output.name, "classLabels")
-        set_multiarray_shape(output, (1, image_size, image_size))
+        ct.utils.rename_feature(spec, output.name, new_output_name)
+
+        # Fill in the shapes for the output tensors.
+        with torch.no_grad():
+            temp = traced_model(example_input)
+
+        set_multiarray_shape(output, temp.shape)
 
         mlmodel.input_description["image"] = "Image input"
-        mlmodel.output_description["classLabels"] = "Segmentation map"
+        mlmodel.output_description[new_output_name] = "Segmentation map"
 
         labels = get_labels_as_list(torch_model)
         user_defined_metadata["classes"] = ",".join(labels)
+
+        # Make the model available in Xcode's previewer.
+        mlmodel.user_defined_metadata["com.apple.coreml.model.preview.type"] = "imageSegmenter"
+        mlmodel.user_defined_metadata["com.apple.coreml.model.preview.params"] = json.dumps({"labels": labels})
 
     if isinstance(torch_model, MobileViTModel):
         # Rename the pooled output.

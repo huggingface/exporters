@@ -173,6 +173,8 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 ### MobileViT
 
 - `feature_extractor` (required). The `MobileViTFeatureExtractor` object for the trained model.
+- `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
+- `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
 
 ### OpenAI GPT2, DistilGPT2
 
@@ -183,6 +185,8 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 ### SegFormer
 
 - `feature_extractor` (required). The `SegformerFeatureExtractor` object for the trained model.
+- `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
+- `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
 
 ### ViT
 
@@ -204,7 +208,9 @@ Additional notes:
 
 - For models that output logits, a softmax layer is usually added during the conversion process to convert the logits into probabilities. However, for certain models (e.g. GPT2) this was found to result in NaN values in the output. For these models where softmax was problematic, it was left out.
 
-- For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata.
+- For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata. 
+
+- For semantic segmentation models, the model takes the argmax and the outputs are the predicted class label indices. This can be disabled, in which case the outputs are the predicted class probabilities. Note: With the argmax enabled, the Preview pane won't be available in Xcode's model viewer.
 
 - ML Programs currently only support 16-bit float quantization, not integer quantization. This is a limitation of Core ML.
 

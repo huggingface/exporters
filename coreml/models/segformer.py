@@ -13,6 +13,7 @@
 # limitations under the License.
 """Core ML conversion for SegFormer."""
 
+import json
 import numpy as np
 import torch
 from torch import nn
@@ -25,10 +26,12 @@ from ..coreml_utils import *
 
 
 class Wrapper(torch.nn.Module):
-    def __init__(self, model, feature_extractor):
+    def __init__(self, model, feature_extractor, do_upsample, do_argmax):
         super().__init__()
         self.model = model.eval()
         self.feature_extractor = feature_extractor
+        self.do_upsample = do_upsample
+        self.do_argmax = do_argmax
 
     def forward(self, inputs):
         # Core ML's image preprocessing does not allow a different
@@ -42,26 +45,31 @@ class Wrapper(torch.nn.Module):
             return nn.functional.softmax(outputs.logits, dim=1)
 
         if isinstance(self.model, SegformerForSemanticSegmentation):
-            x = nn.functional.interpolate(outputs.logits, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
-            x = x.argmax(1)
+            x = outputs.logits
+            if self.do_upsample:
+                x = nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
+            if self.do_argmax:
+                x = x.argmax(1)
             return x
 
         if isinstance(self.model, SegformerModel):
             return outputs.last_hidden_state
 
         return None
-    
+
 
 def export(
     torch_model, 
     feature_extractor: SegformerFeatureExtractor, 
+    do_upsample: bool = True,
+    do_argmax: bool = True,
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
     if not isinstance(feature_extractor, SegformerFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model, feature_extractor).eval()
+    wrapper = Wrapper(torch_model, feature_extractor, do_upsample, do_argmax).eval()
 
     scale = 1.0 / 255
     bias = [
@@ -109,16 +117,27 @@ def export(
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
     if isinstance(torch_model, SegformerForSemanticSegmentation):
-        # Rename the segmentation output and fill in its shape.
+        new_output_name = "classLabels" if do_argmax else "probabilities"
+
+        # Rename the segmentation output.
         output = spec.description.output[0]
-        ct.utils.rename_feature(spec, output.name, "classLabels")
-        set_multiarray_shape(output, (1, image_size, image_size))
+        ct.utils.rename_feature(spec, output.name, new_output_name)
+
+        # Fill in the shapes for the output tensors.
+        with torch.no_grad():
+            temp = traced_model(example_input)
+
+        set_multiarray_shape(output, temp.shape)
 
         mlmodel.input_description["image"] = "Image input"
-        mlmodel.output_description["classLabels"] = "Segmentation map"
+        mlmodel.output_description[new_output_name] = "Segmentation map"
 
         labels = get_labels_as_list(torch_model)
         user_defined_metadata["classes"] = ",".join(labels)
+
+        # Make the model available in Xcode's previewer.
+        mlmodel.user_defined_metadata["com.apple.coreml.model.preview.type"] = "imageSegmenter"
+        mlmodel.user_defined_metadata["com.apple.coreml.model.preview.params"] = json.dumps({"labels": labels})
 
     if isinstance(torch_model, SegformerModel):
         # Rename the output and fill in its shape.
