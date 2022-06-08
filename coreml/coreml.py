@@ -20,12 +20,14 @@ import coremltools as ct
 from transformers import BertForQuestionAnswering
 from transformers import ConvNextModel, ConvNextForImageClassification
 from transformers import CvtModel, CvtForImageClassification
-from transformers import DistilBertForQuestionAnswering
+from transformers import DistilBertForQuestionAnswering, DistilBertForSequenceClassification
 from transformers import GPT2LMHeadModel
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
 from transformers import ViTModel, ViTForImageClassification
 from transformers.utils import logging
+
+from .coreml_utils import is_any_instance
 
 
 def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> Optional[ct.models.MLModel]:
@@ -52,7 +54,11 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     kwargs["quantize"] = quantize
     kwargs["legacy"] = legacy
 
-    if model_type in [BertForQuestionAnswering, DistilBertForQuestionAnswering]:
+    if is_any_instance(model, [
+        BertForQuestionAnswering,
+        DistilBertForQuestionAnswering,
+        DistilBertForSequenceClassification
+    ]):
         from .models import distilbert
         return distilbert.export(model, **kwargs)
 
