@@ -39,13 +39,13 @@ class Wrapper(torch.nn.Module):
         image_std = torch.tensor(self.feature_extractor.image_std).reshape(1, -1, 1, 1)
         inputs = inputs / image_std
 
-        outputs = self.model(inputs)
+        outputs = self.model(inputs, return_dict=False)
 
         if isinstance(self.model, SegformerForImageClassification):
-            return nn.functional.softmax(outputs.logits, dim=1)
+            return nn.functional.softmax(outputs[0], dim=1)
 
         if isinstance(self.model, SegformerForSemanticSegmentation):
-            x = outputs.logits
+            x = outputs[0]
             if self.do_upsample:
                 x = nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
             if self.do_argmax:
@@ -53,14 +53,14 @@ class Wrapper(torch.nn.Module):
             return x
 
         if isinstance(self.model, SegformerModel):
-            return outputs.last_hidden_state
+            return outputs[0]  # last_hidden_state
 
         return None
 
 
 def export(
-    torch_model, 
-    feature_extractor: SegformerFeatureExtractor, 
+    torch_model,
+    feature_extractor: SegformerFeatureExtractor,
     do_upsample: bool = True,
     do_argmax: bool = True,
     quantize: str = "float32",
@@ -95,7 +95,7 @@ def export(
 
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias, 
+        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                              color_layout="RGB", channel_first=True)],
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,

@@ -49,6 +49,9 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     """
     logger = logging.get_logger(__name__)
 
+    if not model.config.torchscript:
+        logger.warning("For best results, load the model with the argument `torchscript=True`.")
+
     model_type = type(model)
 
     kwargs["quantize"] = quantize

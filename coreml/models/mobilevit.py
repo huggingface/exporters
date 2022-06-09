@@ -33,13 +33,13 @@ class Wrapper(torch.nn.Module):
         self.do_argmax = do_argmax
 
     def forward(self, inputs):
-        outputs = self.model(inputs)
+        outputs = self.model(inputs, return_dict=False)
 
         if isinstance(self.model, MobileViTForImageClassification):
-            return nn.functional.softmax(outputs.logits, dim=1)
+            return nn.functional.softmax(outputs[0], dim=1)
 
         if isinstance(self.model, MobileViTForSemanticSegmentation):
-            x = outputs.logits
+            x = outputs[0]
             if self.do_upsample:
                 x = nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
             if self.do_argmax:
@@ -47,14 +47,14 @@ class Wrapper(torch.nn.Module):
             return x
 
         if isinstance(self.model, MobileViTModel):
-            return outputs.last_hidden_state, outputs.pooler_output
+            return outputs[0], outputs[1]  # last_hidden_state, pooler_output
 
         return None
 
 
 def export(
-    torch_model, 
-    feature_extractor: MobileViTFeatureExtractor, 
+    torch_model,
+    feature_extractor: MobileViTFeatureExtractor,
     do_upsample: bool = True,
     do_argmax: bool = True,
     quantize: str = "float32",
@@ -85,7 +85,7 @@ def export(
 
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias, 
+        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                              color_layout="BGR", channel_first=True)],
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,

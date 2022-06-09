@@ -31,26 +31,27 @@ class Wrapper(torch.nn.Module):
 
     def forward(self, inputs):
         outputs = self.model(
-            inputs, 
+            inputs,
             use_cache=False,
             output_attentions=False,
             output_hidden_states=False,
+            return_dict=False,
         )
 
         if is_any_instance(self.model, [GPT2LMHeadModel]):
             # Performing a softmax here will give nan for the NeuralNetwork version,
-            # so output logits instead. Note: The ML Program version does the softmax 
+            # so output logits instead. Note: The ML Program version does the softmax
             # without problems, but produces completely incorrect logits.
-            #return nn.functional.softmax(outputs.logits, dim=2)
-            return outputs.logits
+            #return nn.functional.softmax(outputs[0], dim=2)
+            return outputs[0]
 
         return None
 
 
 def export(
-    torch_model, 
+    torch_model,
     tokenizer: PreTrainedTokenizerBase,
-    sequence_length: int = 64, 
+    sequence_length: int = 64,
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
@@ -83,7 +84,7 @@ def export(
         output = spec.description.output[0]
         ct.utils.rename_feature(spec, output.name, "output_logits")
         set_multiarray_shape(output, (1, sequence_length, tokenizer.vocab_size))
-        
+
         mlmodel.input_description["input_ids"] = "Indices of input sequence tokens in the vocabulary"
         mlmodel.output_description["output_logits"] = "Prediction scores of the language modeling head (scores for each vocabulary token before softmax)"
 

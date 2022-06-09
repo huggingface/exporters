@@ -37,7 +37,7 @@ def einsum(context, node):
     a = context[node.inputs[1]][0]
     b = context[node.inputs[1]][1]
     equation = context[node.inputs[0]].val
-    
+
     if equation == "bhlt,bhtv->bhlv":
         x = mb.matmul(x=a, y=b, transpose_x=False, transpose_y=False, name=node.name)
     else:
@@ -58,20 +58,20 @@ class Wrapper(torch.nn.Module):
         image_std = torch.tensor(self.feature_extractor.image_std).reshape(1, -1, 1, 1)
         inputs = inputs / image_std
 
-        outputs = self.model(inputs)
+        outputs = self.model(inputs, return_dict=False)
 
         if isinstance(self.model, CvtForImageClassification):
-            return nn.functional.softmax(outputs.logits, dim=1)
+            return nn.functional.softmax(outputs[0], dim=1)
 
         if isinstance(self.model, CvtModel):
-            return outputs.last_hidden_state, outputs.cls_token_value
+            return outputs[0], outputs[1]  # last_hidden_state, cls_token_value
 
         return None
-    
+
 
 def export(
-    torch_model, 
-    feature_extractor: ConvNextFeatureExtractor, 
+    torch_model,
+    feature_extractor: ConvNextFeatureExtractor,
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
@@ -104,7 +104,7 @@ def export(
 
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias, 
+        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                              color_layout="RGB", channel_first=True)],
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
@@ -136,7 +136,7 @@ def export(
             temp = traced_model(example_input)
 
         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), temp[0].shape)
-        set_multiarray_shape(get_output_named(spec, "cls_token_value"), temp[1].shape)            
+        set_multiarray_shape(get_output_named(spec, "cls_token_value"), temp[1].shape)
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Sequence of hidden-states at the output of the last layer of the model"

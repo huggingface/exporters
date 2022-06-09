@@ -28,9 +28,7 @@ The aim of the Exporters package is to be more convenient than writing your own 
 
 Note: Keep in mind that Transformer models are usually quite large and are not always suitable for use on mobile devices. It might be a good idea to [optimize the model for inference](https://github.com/huggingface/optimum) first using 🤗 Optimum.
 
-## How to use exporters
-
-### Core ML
+## How to use the Core ML exporter
 
 To export a model to Core ML:
 
@@ -38,11 +36,13 @@ To export a model to Core ML:
 from transformers import ViTForImageClassification, ViTFeatureExtractor
 model_checkpoint = "google/vit-base-patch16-224"
 feature_extractor = ViTFeatureExtractor.from_pretrained(model_checkpoint)
-torch_model = ViTForImageClassification.from_pretrained(model_checkpoint)
+torch_model = ViTForImageClassification.from_pretrained(model_checkpoint, torchscript=True)
 
 from exporters import coreml
 mlmodel = coreml.export(torch_model, feature_extractor=feature_extractor, quantize="float16")
 ```
+
+Note: For the best results, pass the argument `torchscript=True` to `from_pretrained` when loading the model. This allows the model to configure itself for PyTorch tracing, which is needed for the Core ML conversion.
 
 Optionally fill in the model's metadata:
 
@@ -53,11 +53,13 @@ mlmodel.license = "Copyright by you"
 mlmodel.version = "1.0"
 ```
 
-Finally, save the model. You can open the resulting **mlpackage** file in Xcode and examine it there. 
+Finally, save the model. You can open the resulting **mlpackage** file in Xcode and examine it there.
 
 ```python
 mlmodel.save("ViT.mlpackage")
 ```
+
+### Configuring the export options
 
 The arguments to `coreml.export()` are:
 
@@ -67,6 +69,8 @@ The arguments to `coreml.export()` are:
 - Any model-specific arguments. For image models, this usually includes the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
 
 **Note:** It's normal for the conversion process to output warning messages. You can safely ignore these. As long as the output from `coreml.export()` is a `MLModel` object, the conversion was successful. If the conversion failed, `coreml.export()` returns `None` or raises an exception. That said, it's always a good idea to run the original model and the Core ML model on the same inputs, and verify that the outputs are identical or at least have a maximum error of less than 1e-5 or so.
+
+### Verifying the export was successful
 
 When doing the Core ML export on a Mac, it's possible to make predictions from Python using the exported model. For example:
 
@@ -89,7 +93,7 @@ print(outputs["classLabel"])
 
 This is useful for verifying that the exported model indeed works as expected!
 
-## TensorFlow Lite
+## How to use the TensorFlow Lite exporter
 
 To export a model to TF Lite:
 
@@ -133,10 +137,10 @@ Currently, the following PyTorch models can be exported:
 
 | Model | Types | Core ML |
 |-------|-------| --------|
-| [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ | 
-| [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ | 
-| [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ | 
-| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering` | ✅ | 
+| [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ |
+| [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
+| [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
+| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
@@ -192,7 +196,9 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 - `feature_extractor` (required). The `ViTFeatureExtractor` object for the trained model.
 
-## Exporting to Core ML
+## Additional notes
+
+### Core ML
 
 The `exporters.coreml` module uses the [coremltools](https://coremltools.readme.io/docs) package to perform the conversion from PyTorch or TensorFlow to Core ML format.
 
@@ -204,11 +210,11 @@ Additional notes:
 
 - Text models will require manual tokenization of the input data. Core ML does not have its own tokenization support.
 
-- For classification models, a softmax layer is added during the conversion process and the labels are included in the `MLModel` object. 
+- For classification models, a softmax layer is added during the conversion process and the labels are included in the `MLModel` object.
 
 - For models that output logits, a softmax layer is usually added during the conversion process to convert the logits into probabilities. However, for certain models (e.g. GPT2) this was found to result in NaN values in the output. For these models where softmax was problematic, it was left out.
 
-- For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata. 
+- For semantic segmentation and object detection models, the labels are included in the `MLModel` object's metadata.
 
 - For semantic segmentation models, the model takes the argmax and the outputs are the predicted class label indices. This can be disabled, in which case the outputs are the predicted class probabilities. Note: With the argmax enabled, the Preview pane won't be available in Xcode's model viewer.
 
@@ -216,13 +222,13 @@ Additional notes:
 
 - Image classifier models have the usual `classLabel` and `probabilities` outputs, but also a "hidden" `var_xxx` output with the softmax results. This appears to be a minor bug in the converter; it doesn't hurt anything to keep this extra output.
 
-## Exporting to TensorFlow Lite
+### TensorFlow Lite
 
 The `exporters.tflite` module uses the [TFLiteConverter](https://www.tensorflow.org/lite/convert/) package to perform the conversion from TensorFlow to TF Lite format.
 
 ## What if your model is not supported?
 
-If the model you wish to export is not currently supported by 🤗 Exporters, you can use [coremltools](https://coremltools.readme.io/docs) or [TFLiteConverter](https://www.tensorflow.org/lite/convert/) to do the conversion yourself. 
+If the model you wish to export is not currently supported by 🤗 Exporters, you can use [coremltools](https://coremltools.readme.io/docs) or [TFLiteConverter](https://www.tensorflow.org/lite/convert/) to do the conversion yourself.
 
 **Tip:** Look at the existing conversion code for models similar to yours to see how best to do this conversion. Sometimes it's just a matter of copy-pasting the conversion code.
 

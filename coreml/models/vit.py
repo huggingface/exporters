@@ -30,23 +30,23 @@ class Wrapper(torch.nn.Module):
         self.model = model.eval()
 
     def forward(self, inputs):
-        outputs = self.model(inputs)
+        outputs = self.model(inputs, return_dict=False)
 
         if isinstance(self.model, ViTForImageClassification):
-            return nn.functional.softmax(outputs.logits, dim=1)
+            return nn.functional.softmax(outputs[0], dim=1)
 
         if isinstance(self.model, ViTModel):
             if self.model.pooler is not None:
-                return outputs.last_hidden_state, outputs.pooler_output
+                return outputs[0], outputs[1]  # last_hidden_state, pooler_output
             else:
-                return outputs.last_hidden_state
+                return outputs[0]
 
         return None
-    
+
 
 def export(
-    torch_model, 
-    feature_extractor: ViTFeatureExtractor, 
+    torch_model,
+    feature_extractor: ViTFeatureExtractor,
     quantize: str = "float32",
     legacy: bool = False,
 ) -> ct.models.MLModel:
@@ -79,7 +79,7 @@ def export(
 
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias, 
+        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                              color_layout="RGB", channel_first=True)],
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
@@ -116,7 +116,7 @@ def export(
             hidden_shape = temp[0].shape
             pooler_shape = temp[1].shape
             set_multiarray_shape(get_output_named(spec, "hidden_states"), hidden_shape)
-            set_multiarray_shape(get_output_named(spec, "pooler_output"), pooler_shape)            
+            set_multiarray_shape(get_output_named(spec, "pooler_output"), pooler_shape)
             mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
         else:
             hidden_shape = temp.shape
