@@ -54,6 +54,7 @@ def export(
     sequence_length: int = 64,
     quantize: str = "float32",
     legacy: bool = False,
+    **kwargs,
 ) -> ct.models.MLModel:
     if not isinstance(tokenizer, PreTrainedTokenizerBase):
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
@@ -66,6 +67,10 @@ def export(
     convert_kwargs = {}
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
+
+    # pass any additional arguments to ct.convert()
+    for key, value in kwargs.items():
+        convert_kwargs[key] = value
 
     mlmodel = ct.convert(
         traced_model,

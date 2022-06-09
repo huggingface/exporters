@@ -30,19 +30,23 @@ Note: Keep in mind that Transformer models are usually quite large and are not a
 
 ## How to use the Core ML exporter
 
-To export a model to Core ML:
+First, load the model from a checkpoint:
 
 ```python
 from transformers import ViTForImageClassification, ViTFeatureExtractor
 model_checkpoint = "google/vit-base-patch16-224"
 feature_extractor = ViTFeatureExtractor.from_pretrained(model_checkpoint)
 torch_model = ViTForImageClassification.from_pretrained(model_checkpoint, torchscript=True)
-
-from exporters import coreml
-mlmodel = coreml.export(torch_model, feature_extractor=feature_extractor, quantize="float16")
 ```
 
 Note: For the best results, pass the argument `torchscript=True` to `from_pretrained` when loading the model. This allows the model to configure itself for PyTorch tracing, which is needed for the Core ML conversion.
+
+Exporting the model to Core ML:
+
+```python
+from exporters import coreml
+mlmodel = coreml.export(torch_model, feature_extractor=feature_extractor, quantize="float16")
+```
 
 Optionally fill in the model's metadata:
 
@@ -66,7 +70,8 @@ The arguments to `coreml.export()` are:
 - `model` (required): a PyTorch or TensorFlow model instance from the 🤗 Transformers library
 - `quantize` (optional): Whether to quantize the model weights. The possible quantization options are: `"float32"` (no quantization) or `"float16"` (for 16-bit floating point).
 - `legacy` (optional): By default, a model is generated in the ML Program format. By setting `legacy=True`, the older NeuralNetwork format will be used.
-- Any model-specific arguments. For image models, this usually includes the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
+- Model-specific arguments. For image models, this usually includes the `FeatureExtractor` object. Text models will need the sequence length. See below for which arguments to use for your model.
+- Any additional arguments are passed straight through to `coremltools.convert`. For example, `compute_units=coremltools.ComputeUnit.CPU_AND_GPU`.
 
 **Note:** It's normal for the conversion process to output warning messages. You can safely ignore these. As long as the output from `coreml.export()` is a `MLModel` object, the conversion was successful. If the conversion failed, `coreml.export()` returns `None` or raises an exception. That said, it's always a good idea to run the original model and the Core ML model on the same inputs, and verify that the outputs are identical or at least have a maximum error of less than 1e-5 or so.
 

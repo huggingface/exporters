@@ -52,6 +52,9 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     if not model.config.torchscript:
         logger.warning("For best results, load the model with the argument `torchscript=True`.")
 
+    if quantize not in ["float32", "float16"]:
+        raise ValueError(f"Invalid value for quantize: {quantize}")
+
     model_type = type(model)
 
     kwargs["quantize"] = quantize

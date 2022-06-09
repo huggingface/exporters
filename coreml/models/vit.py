@@ -49,6 +49,7 @@ def export(
     feature_extractor: ViTFeatureExtractor,
     quantize: str = "float32",
     legacy: bool = False,
+    **kwargs,
 ) -> ct.models.MLModel:
     if not isinstance(feature_extractor, ViTFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
@@ -76,6 +77,10 @@ def export(
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
+
+    # pass any additional arguments to ct.convert()
+    for key, value in kwargs.items():
+        convert_kwargs[key] = value
 
     mlmodel = ct.convert(
         traced_model,
