@@ -164,7 +164,12 @@ Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not 
 The following models are known to give errors when attempting conversion to Core ML format:
 
 - [DETR](https://huggingface.co/docs/transformers/main/model_doc/detr). The conversion completes without errors but the Core ML compiler cannot load the model.
+- [Data2VecAudio](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec). Same issue as DETR.
+- [Speech2Text](https://huggingface.co/docs/transformers/main/en/model_doc/speech_to_text). The "glu" op is not supported by coremltools. Should be possible to solve by defining a `@register_torch_op` function.
 - [Swin Transformer](https://huggingface.co/docs/transformers/main/model_doc/swin). The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.
+- [Wav2Vec2](https://huggingface.co/docs/transformers/main/en/model_doc/wav2vec2), [HuBERT](https://huggingface.co/docs/transformers/main/en/model_doc/hubert), [SEW](https://huggingface.co/docs/transformers/main/en/model_doc/sew): Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
+- [UniSpeech](https://huggingface.co/docs/transformers/main/en/model_doc/unispeech). Missing op for `_weight_norm` (possible to work around), also same Core ML compiler error as DETR.
+- [WavLM](https://huggingface.co/docs/transformers/main/en/model_doc/wavlm). Missing ops for `_weight_norm`, `add_`, `full_like`.
 
 ## Model-specific conversion options
 
