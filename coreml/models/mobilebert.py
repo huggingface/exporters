@@ -39,8 +39,10 @@ class Wrapper(torch.nn.Module):
         super().__init__()
         self.model = model.eval()
 
-    def forward(self, inputs):
-        outputs = self.model(inputs, return_dict=False)
+    def forward(self, input_ids, attention_mask=None, token_type_ids=None):
+        outputs = self.model(
+            input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, return_dict=False,
+        )
 
         if isinstance(self.model, MobileBertForPreTraining):
             return outputs[0], outputs[1]  # prediction_logits, seq_relationship_logits
@@ -71,6 +73,7 @@ def export(
     torch_model,
     tokenizer: PreTrainedTokenizerBase,
     sequence_length: int = 64,
+    use_attention_mask: bool = True,
     quantize: str = "float32",
     legacy: bool = False,
     **kwargs,
@@ -78,10 +81,25 @@ def export(
     if not isinstance(tokenizer, PreTrainedTokenizerBase):
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
 
+    use_token_type_ids = False
+    if is_any_instance(torch_model, [MobileBertForMultipleChoice, MobileBertForNextSentencePrediction]):
+        use_token_type_ids = True
+        use_attention_mask = True
+
     if isinstance(torch_model, MobileBertForMultipleChoice):
-        example_input = torch.randint(tokenizer.vocab_size, (1, torch_model.config.num_labels, sequence_length))
+        shape = (1, torch_model.config.num_labels, sequence_length)
     else:
-        example_input = torch.randint(tokenizer.vocab_size, (1, sequence_length))
+        shape = (1, sequence_length)
+
+    input_ids = torch.randint(tokenizer.vocab_size, shape)
+    attention_mask = torch.ones(shape, dtype=torch.int64)
+    token_type_ids = torch.zeros(shape, dtype=torch.int64)
+
+    example_input = [ input_ids ]
+    if use_attention_mask:
+        example_input.append(attention_mask)
+    if use_token_type_ids:
+        example_input.append(token_type_ids)
 
     wrapper = Wrapper(torch_model).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
@@ -104,16 +122,22 @@ def export(
     for key, value in kwargs.items():
         convert_kwargs[key] = value
 
+    input_tensors = [ ct.TensorType(name="input_ids", shape=input_ids.shape, dtype=np.int32) ]
+    if use_attention_mask:
+        input_tensors.append(ct.TensorType(name="attention_mask", shape=attention_mask.shape, dtype=np.int32))
+    if use_token_type_ids:
+        input_tensors.append(ct.TensorType(name="token_type_ids", shape=token_type_ids.shape, dtype=np.int32))
+
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.TensorType(name="input_ids", shape=example_input.shape, dtype=np.int32)],
+        inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
 
     # Run the PyTorch model, to get the shapes of the output tensors.
     with torch.no_grad():
-        example_output = traced_model(example_input)
+        example_output = traced_model(*example_input)
 
     spec = mlmodel._spec
 
@@ -122,6 +146,10 @@ def export(
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
     mlmodel.input_description["input_ids"] = "Indices of input sequence tokens in the vocabulary"
+    if use_attention_mask:
+        mlmodel.input_description["attention_mask"] = "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)"
+    if use_token_type_ids:
+        mlmodel.input_description["token_type_ids"] = "Segment token indices to indicate first and second portions of the inputs (0 = sentence A, 1 = sentence B)"
 
     if isinstance(torch_model, MobileBertForMaskedLM):
         # Rename the output and fill in its shape.

@@ -189,8 +189,7 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 - `tokenizer` (required). The `PreTrainedTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
-
-Note: The activations of MobileBERT can be quite large. This model might not work well with float16 execution (`nan` or `inf` in the output).
+- `use_attention_mask` (optional, default is `True`). If true, adds an `attention_mask` input to the exported model.
 
 ### MobileViT
 
