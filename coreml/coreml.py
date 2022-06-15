@@ -22,6 +22,16 @@ from transformers import ConvNextModel, ConvNextForImageClassification
 from transformers import CvtModel, CvtForImageClassification
 from transformers import DistilBertForQuestionAnswering, DistilBertForSequenceClassification
 from transformers import GPT2LMHeadModel
+from transformers import (
+    MobileBertModel,
+    MobileBertForMaskedLM,
+    MobileBertForMultipleChoice,
+    MobileBertForNextSentencePrediction,
+    MobileBertForPreTraining,
+    MobileBertForQuestionAnswering,
+    MobileBertForSequenceClassification,
+    MobileBertForTokenClassification,
+)
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
 from transformers import ViTModel, ViTForImageClassification
@@ -79,6 +89,19 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     elif model_type == GPT2LMHeadModel:
         from .models import gpt2
         return gpt2.export(model, **kwargs)
+
+    elif model_type in [
+        MobileBertModel,
+        MobileBertForMaskedLM,
+        MobileBertForMultipleChoice,
+        MobileBertForNextSentencePrediction,
+        MobileBertForPreTraining,
+        MobileBertForQuestionAnswering,
+        MobileBertForSequenceClassification,
+        MobileBertForTokenClassification,
+    ]:
+        from .models import mobilebert
+        return mobilebert.export(model, **kwargs)
 
     elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
         from .models import mobilevit

@@ -146,6 +146,7 @@ Currently, the following PyTorch models can be exported:
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification` | ✅ |
+| [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
@@ -183,6 +184,13 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 ### ConvNeXT, CvT
 
 - `feature_extractor` (required). The `ConvNextFeatureExtractor` object for the trained model.
+
+### MobileBERT
+
+- `tokenizer` (required). The `PreTrainedTokenizer` object for the trained model.
+- `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
+
+Note: The activations of MobileBERT can be quite large. This model might not work well with float16 execution (`nan` or `inf` in the output).
 
 ### MobileViT
 
