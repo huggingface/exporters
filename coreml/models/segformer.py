@@ -70,8 +70,6 @@ def export(
     if not isinstance(feature_extractor, SegformerFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model, feature_extractor, do_upsample, do_argmax).eval()
-
     scale = 1.0 / 255
     bias = [
         -feature_extractor.image_mean[0],
@@ -81,9 +79,15 @@ def export(
 
     image_size = feature_extractor.size
     image_shape = (1, 3, image_size, image_size)
-    example_input = torch.rand(image_shape) * 2.0 - 1.0
+    pixel_values = torch.rand(image_shape) * 2.0 - 1.0
+    example_input = [ pixel_values ]
 
+    wrapper = Wrapper(torch_model, feature_extractor, do_upsample, do_argmax).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
+
+    # Run the PyTorch model, to get the shapes of the output tensors.
+    with torch.no_grad():
+        example_output = traced_model(*example_input)
 
     convert_kwargs = { }
     if not legacy:
@@ -98,10 +102,12 @@ def export(
     for key, value in kwargs.items():
         convert_kwargs[key] = value
 
+    input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
+                                   color_layout="RGB", channel_first=True) ]
+
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
-                             color_layout="RGB", channel_first=True)],
+        inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
@@ -127,12 +133,7 @@ def export(
         # Rename the segmentation output.
         output = spec.description.output[0]
         ct.utils.rename_feature(spec, output.name, new_output_name)
-
-        # Fill in the shapes for the output tensors.
-        with torch.no_grad():
-            temp = traced_model(example_input)
-
-        set_multiarray_shape(output, temp.shape)
+        set_multiarray_shape(output, example_output.shape)
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description[new_output_name] = "Segmentation map"
@@ -148,11 +149,7 @@ def export(
         # Rename the output and fill in its shape.
         output = spec.description.output[0]
         ct.utils.rename_feature(spec, output.name, "last_hidden_state")
-
-        with torch.no_grad():
-            temp = traced_model(example_input)
-
-        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), temp.shape)
+        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output.shape)
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"

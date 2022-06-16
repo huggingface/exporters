@@ -79,8 +79,6 @@ def export(
     if not isinstance(feature_extractor, ConvNextFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model, feature_extractor).eval()
-
     scale = 1.0 / 255
     bias = [
         -feature_extractor.image_mean[0],
@@ -90,9 +88,15 @@ def export(
 
     image_size = feature_extractor.size
     image_shape = (1, 3, image_size, image_size)
-    example_input = torch.rand(image_shape) * 2.0 - 1.0
+    pixel_values = torch.rand(image_shape) * 2.0 - 1.0
+    example_input = [ pixel_values ]
 
+    wrapper = Wrapper(torch_model, feature_extractor).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
+
+    # Run the PyTorch model, to get the shapes of the output tensors.
+    with torch.no_grad():
+        example_output = traced_model(*example_input)
 
     convert_kwargs = { }
     if not legacy:
@@ -107,10 +111,12 @@ def export(
     for key, value in kwargs.items():
         convert_kwargs[key] = value
 
+    input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
+                                   color_layout="RGB", channel_first=True) ]
+
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
-                             color_layout="RGB", channel_first=True)],
+        inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
@@ -136,12 +142,8 @@ def export(
         ct.utils.rename_feature(spec, output_names[0], "last_hidden_state")
         ct.utils.rename_feature(spec, output_names[1], "cls_token_value")
 
-        # Fill in the shapes for the output tensors.
-        with torch.no_grad():
-            temp = traced_model(example_input)
-
-        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), temp[0].shape)
-        set_multiarray_shape(get_output_named(spec, "cls_token_value"), temp[1].shape)
+        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output[0].shape)
+        set_multiarray_shape(get_output_named(spec, "cls_token_value"), example_output[1].shape)
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Sequence of hidden-states at the output of the last layer of the model"
