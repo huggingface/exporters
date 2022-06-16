@@ -23,8 +23,12 @@ from coremltools.models.neural_network import quantization_utils
 from transformers import (
     PreTrainedTokenizerBase,
     BertForQuestionAnswering,
+    DistilBertModel,
+    DistilBertForMaskedLM,
+    DistilBertForMultipleChoice,
     DistilBertForQuestionAnswering,
-    DistilBertForSequenceClassification
+    DistilBertForSequenceClassification,
+    DistilBertForTokenClassification,
 )
 from ..coreml_utils import *
 
@@ -34,18 +38,24 @@ class Wrapper(torch.nn.Module):
         super().__init__()
         self.model = model.eval()
 
-    def forward(self, inputs):
-        outputs = self.model(inputs, return_dict=False)
+    def forward(self, input_ids, attention_mask=None):
+        outputs = self.model(input_ids, attention_mask=attention_mask, return_dict=False)
+
+        if is_any_instance(self.model, [
+            DistilBertForMaskedLM,
+            DistilBertForMultipleChoice,
+            DistilBertForSequenceClassification,
+            DistilBertForTokenClassification,
+        ]):
+            return nn.functional.softmax(outputs[0], dim=-1)  # logits
 
         if is_any_instance(self.model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
-            start_logits = outputs[0]
-            end_logits = outputs[1]
-            start_scores = nn.functional.softmax(start_logits, dim=1)
-            end_scores = nn.functional.softmax(end_logits, dim=1)
+            start_scores = nn.functional.softmax(outputs[0], dim=-1)  # start_logits
+            end_scores   = nn.functional.softmax(outputs[1], dim=-1)  # end_logits
             return start_scores, end_scores
 
-        if isinstance(self.model, DistilBertForSequenceClassification):
-            return nn.functional.softmax(outputs[0], dim=1)
+        if isinstance(self.model, DistilBertModel):
+            return outputs[0]  # last_hidden_state
 
         return None
 
@@ -54,6 +64,7 @@ def export(
     torch_model,
     tokenizer: PreTrainedTokenizerBase,
     sequence_length: int = 64,
+    use_attention_mask: bool = True,
     quantize: str = "float32",
     legacy: bool = False,
     **kwargs,
@@ -61,16 +72,30 @@ def export(
     if not isinstance(tokenizer, PreTrainedTokenizerBase):
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
 
-    example_input = torch.randint(tokenizer.vocab_size, (1, sequence_length))
+    if isinstance(torch_model, DistilBertForMultipleChoice):
+        shape = (1, torch_model.config.num_labels, sequence_length)
+    else:
+        shape = (1, sequence_length)
+
+    input_ids = torch.randint(tokenizer.vocab_size, shape)
+    attention_mask = torch.ones(shape, dtype=torch.int64)
+
+    example_input = [ input_ids ]
+    if use_attention_mask:
+        example_input.append(attention_mask)
 
     wrapper = Wrapper(torch_model).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
+
+    # Run the PyTorch model, to get the shapes of the output tensors.
+    with torch.no_grad():
+        example_output = traced_model(*example_input)
 
     convert_kwargs = {}
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if isinstance(torch_model, DistilBertForSequenceClassification):
+    if is_any_instance(torch_model, [DistilBertForSequenceClassification, DistilBertForMultipleChoice]):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
@@ -79,9 +104,13 @@ def export(
     for key, value in kwargs.items():
         convert_kwargs[key] = value
 
+    input_tensors = [ ct.TensorType(name="input_ids", shape=input_ids.shape, dtype=np.int32) ]
+    if use_attention_mask:
+        input_tensors.append(ct.TensorType(name="attention_mask", shape=attention_mask.shape, dtype=np.int32))
+
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.TensorType(name="input_ids", shape=example_input.shape, dtype=np.int32)],
+        inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
@@ -93,14 +122,15 @@ def export(
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
     mlmodel.input_description["input_ids"] = "Indices of input sequence tokens in the vocabulary"
+    if use_attention_mask:
+        mlmodel.input_description["attention_mask"] = "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)"
 
-    if isinstance(torch_model, DistilBertForSequenceClassification):
-        probs_output_name = spec.description.predictedProbabilitiesName
-        ct.utils.rename_feature(spec, probs_output_name, "probabilities")
-        spec.description.predictedProbabilitiesName = "probabilities"
-
-        mlmodel.output_description["probabilities"] = "Probability of each category"
-        mlmodel.output_description["classLabel"] = "Category with the highest score"
+    if isinstance(torch_model, DistilBertForMaskedLM):
+        # Rename the output and fill in its shape.
+        output = spec.description.output[0]
+        ct.utils.rename_feature(spec, output.name, "token_scores")
+        set_multiarray_shape(output, example_output.shape)
+        mlmodel.output_description["token_scores"] = "Prediction scores for each vocabulary token (after softmax)"
 
     if is_any_instance(torch_model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
         # Rename the outputs and fill in their shapes.
@@ -114,6 +144,34 @@ def export(
 
         mlmodel.output_description["start_scores"] = "Span-start scores (after softmax)"
         mlmodel.output_description["end_scores"] = "Span-end scores (after softmax)"
+
+    if is_any_instance(torch_model, [
+        DistilBertForSequenceClassification,
+        DistilBertForMultipleChoice,
+    ]):
+        probs_output_name = spec.description.predictedProbabilitiesName
+        ct.utils.rename_feature(spec, probs_output_name, "probabilities")
+        spec.description.predictedProbabilitiesName = "probabilities"
+
+        mlmodel.output_description["probabilities"] = "Probability of each category"
+        mlmodel.output_description["classLabel"] = "Category with the highest score"
+
+    if isinstance(torch_model, DistilBertForTokenClassification):
+        # Rename the output and fill in its shape.
+        output = spec.description.output[0]
+        ct.utils.rename_feature(spec, output.name, "token_scores")
+        set_multiarray_shape(output, example_output.shape)
+        mlmodel.output_description["token_scores"] = "Classification scores (after softmax)"
+
+        # Add the class labels to the metadata.
+        labels = get_labels_as_list(torch_model)
+        user_defined_metadata["classes"] = ",".join(labels)
+
+    if isinstance(torch_model, DistilBertModel):
+        output = spec.description.output[0]
+        ct.utils.rename_feature(spec, output.name, "last_hidden_state")
+        set_multiarray_shape(output, example_output.shape)
+        mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)

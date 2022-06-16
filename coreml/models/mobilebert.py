@@ -54,13 +54,11 @@ class Wrapper(torch.nn.Module):
             MobileBertForSequenceClassification,
             MobileBertForTokenClassification,
         ]):
-            return nn.functional.softmax(outputs[0], dim=-1)
+            return nn.functional.softmax(outputs[0], dim=-1)  # logits
 
         if isinstance(self.model, MobileBertForQuestionAnswering):
-            start_logits = outputs[0]
-            end_logits = outputs[1]
-            start_scores = nn.functional.softmax(start_logits, dim=-1)
-            end_scores = nn.functional.softmax(end_logits, dim=-1)
+            start_scores = nn.functional.softmax(outputs[0], dim=-1)  # start_logits
+            end_scores   = nn.functional.softmax(outputs[1], dim=-1)  # end_logits
             return start_scores, end_scores
 
         if isinstance(self.model, MobileBertModel):
@@ -104,6 +102,10 @@ def export(
     wrapper = Wrapper(torch_model).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
+    # Run the PyTorch model, to get the shapes of the output tensors.
+    with torch.no_grad():
+        example_output = traced_model(*example_input)
+
     convert_kwargs = {}
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
@@ -135,10 +137,6 @@ def export(
         **convert_kwargs,
     )
 
-    # Run the PyTorch model, to get the shapes of the output tensors.
-    with torch.no_grad():
-        example_output = traced_model(*example_input)
-
     spec = mlmodel._spec
 
     user_defined_metadata = {}
@@ -154,9 +152,9 @@ def export(
     if isinstance(torch_model, MobileBertForMaskedLM):
         # Rename the output and fill in its shape.
         output = spec.description.output[0]
-        ct.utils.rename_feature(spec, output.name, "scores")
+        ct.utils.rename_feature(spec, output.name, "token_scores")
         set_multiarray_shape(output, example_output.shape)
-        mlmodel.output_description["scores"] = "Prediction scores for each vocabulary token (after softmax)"
+        mlmodel.output_description["token_scores"] = "Prediction scores for each vocabulary token (after softmax)"
 
     if isinstance(torch_model, MobileBertForPreTraining):
         # Rename the outpust and fill in their shapes.
@@ -197,9 +195,9 @@ def export(
     if isinstance(torch_model, MobileBertForTokenClassification):
         # Rename the output and fill in its shape.
         output = spec.description.output[0]
-        ct.utils.rename_feature(spec, output.name, "scores")
+        ct.utils.rename_feature(spec, output.name, "token_scores")
         set_multiarray_shape(output, example_output.shape)
-        mlmodel.output_description["scores"] = "Classification scores (after softmax)"
+        mlmodel.output_description["token_scores"] = "Classification scores (after softmax)"
 
         # Add the class labels to the metadata.
         labels = get_labels_as_list(torch_model)

@@ -20,7 +20,14 @@ import coremltools as ct
 from transformers import BertForQuestionAnswering
 from transformers import ConvNextModel, ConvNextForImageClassification
 from transformers import CvtModel, CvtForImageClassification
-from transformers import DistilBertForQuestionAnswering, DistilBertForSequenceClassification
+from transformers import (
+    DistilBertModel,
+    DistilBertForMaskedLM,
+    DistilBertForMultipleChoice,
+    DistilBertForQuestionAnswering,
+    DistilBertForSequenceClassification,
+    DistilBertForTokenClassification,
+)
 from transformers import GPT2LMHeadModel
 from transformers import (
     MobileBertModel,
@@ -72,8 +79,12 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
 
     if is_any_instance(model, [
         BertForQuestionAnswering,
+        DistilBertModel,
+        DistilBertForMaskedLM,
+        DistilBertForMultipleChoice,
         DistilBertForQuestionAnswering,
-        DistilBertForSequenceClassification
+        DistilBertForSequenceClassification,
+        DistilBertForTokenClassification,
     ]):
         from .models import distilbert
         return distilbert.export(model, **kwargs)

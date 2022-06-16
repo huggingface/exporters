@@ -145,7 +145,7 @@ Currently, the following PyTorch models can be exported:
 | [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ |
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
-| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification` | ✅ |
+| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
@@ -180,6 +180,7 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 - `tokenizer` (required). The `(Distil)BertTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
+- `use_attention_mask` (optional, default is `True`). If true, adds an `attention_mask` input to the exported model.
 
 ### ConvNeXT, CvT
 
