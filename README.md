@@ -148,7 +148,7 @@ Currently, the following PyTorch models can be exported:
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
-| [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2LMHeadModel` | ✅ |
+| [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification` | ✅ |
 
@@ -202,6 +202,7 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 - `tokenizer` (required). The `GPT2Tokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length, vocab size)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 64.
+- `use_attention_mask` (optional, default is `True`). If true, adds an `attention_mask` input to the exported model.
 - `legacy=True`. This model needs to be exported as NeuralNetwork; it currently does not work correctly as ML Program.
 
 ### SegFormer

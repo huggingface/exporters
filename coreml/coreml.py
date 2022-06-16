@@ -28,7 +28,12 @@ from transformers import (
     DistilBertForSequenceClassification,
     DistilBertForTokenClassification,
 )
-from transformers import GPT2LMHeadModel
+from transformers import (
+    GPT2Model,
+    GPT2LMHeadModel,
+    GPT2ForSequenceClassification,
+    GPT2ForTokenClassification,
+)
 from transformers import (
     MobileBertModel,
     MobileBertForMaskedLM,
@@ -97,7 +102,12 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
         from .models import cvt
         return cvt.export(model, **kwargs)
 
-    elif model_type == GPT2LMHeadModel:
+    elif model_type in [
+        GPT2Model,
+        GPT2LMHeadModel,
+        GPT2ForSequenceClassification,
+        GPT2ForTokenClassification,
+    ]:
         from .models import gpt2
         return gpt2.export(model, **kwargs)
 
