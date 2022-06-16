@@ -20,7 +20,7 @@ from torch import nn
 import coremltools as ct
 from coremltools.models.neural_network import quantization_utils
 
-from transformers import ViTFeatureExtractor, ViTModel, ViTForImageClassification
+from transformers import ViTFeatureExtractor, ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
 from ..coreml_utils import *
 
 
@@ -29,11 +29,17 @@ class Wrapper(torch.nn.Module):
         super().__init__()
         self.model = model.eval()
 
-    def forward(self, inputs):
-        outputs = self.model(inputs, return_dict=False)
+    def forward(self, inputs, bool_masked_pos=None):
+        if bool_masked_pos is None:
+            outputs = self.model(inputs, return_dict=False)
+        else:
+            outputs = self.model(inputs, bool_masked_pos=bool_masked_pos, return_dict=False)
 
         if isinstance(self.model, ViTForImageClassification):
-            return nn.functional.softmax(outputs[0], dim=1)
+            return nn.functional.softmax(outputs[0], dim=1)  # logits
+
+        if isinstance(self.model, ViTForMaskedImageModeling):
+            return outputs[1]  # logits
 
         if isinstance(self.model, ViTModel):
             if self.model.pooler is not None:
@@ -54,8 +60,6 @@ def export(
     if not isinstance(feature_extractor, ViTFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    wrapper = Wrapper(torch_model).eval()
-
     scale = 1.0 / (feature_extractor.image_std[0] * 255)
     bias = [
         -feature_extractor.image_mean[0] / feature_extractor.image_std[0],
@@ -65,9 +69,20 @@ def export(
 
     image_size = feature_extractor.size
     image_shape = (1, 3, image_size, image_size)
-    example_input = torch.rand(image_shape) * 2.0 - 1.0
+    pixel_values = torch.rand(image_shape) * 2.0 - 1.0
+    example_input = [ pixel_values ]
 
+    if isinstance(torch_model, ViTForMaskedImageModeling):
+        num_patches = (torch_model.config.image_size // torch_model.config.patch_size) ** 2
+        bool_masked_pos = torch.randint(low=0, high=2, size=(1, num_patches)).bool()
+        example_input.append(bool_masked_pos)
+
+    wrapper = Wrapper(torch_model).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
+
+    # Run the PyTorch model, to get the shapes of the output tensors.
+    with torch.no_grad():
+        example_output = traced_model(*example_input)
 
     convert_kwargs = { }
     if not legacy:
@@ -82,10 +97,15 @@ def export(
     for key, value in kwargs.items():
         convert_kwargs[key] = value
 
+    input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
+                                   color_layout="RGB", channel_first=True) ]
+
+    if isinstance(torch_model, ViTForMaskedImageModeling):
+        input_tensors.append(ct.TensorType(name="bool_masked_pos", shape=bool_masked_pos.shape, dtype=np.int32))
+
     mlmodel = ct.convert(
         traced_model,
-        inputs=[ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
-                             color_layout="RGB", channel_first=True)],
+        inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
         **convert_kwargs,
     )
@@ -105,30 +125,33 @@ def export(
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
+    if isinstance(torch_model, ViTForMaskedImageModeling):
+        # Rename the output and fill in its shape.
+        output = spec.description.output[0]
+        ct.utils.rename_feature(spec, output.name, "logits")
+        set_multiarray_shape(output, example_output.shape)
+        mlmodel.output_description["logits"] = "Prediction scores (before softmax)"
+
     if isinstance(torch_model, ViTModel):
+        ct.utils.rename_feature(spec, "hidden_states", "last_hidden_state")
+
         # Rename the output from the pooler.
         if torch_model.pooler is not None:
             output_names = get_output_names(spec)
             for output_name in output_names:
-                if output_name != "hidden_states":
+                if output_name != "last_hidden_state":
                     ct.utils.rename_feature(spec, output_name, "pooler_output")
 
-        # Fill in the shapes for the output tensors.
-        with torch.no_grad():
-            temp = traced_model(example_input)
-
         if torch_model.pooler is not None:
-            hidden_shape = temp[0].shape
-            pooler_shape = temp[1].shape
-            set_multiarray_shape(get_output_named(spec, "hidden_states"), hidden_shape)
-            set_multiarray_shape(get_output_named(spec, "pooler_output"), pooler_shape)
+            set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output[0].shape)
+            set_multiarray_shape(get_output_named(spec, "pooler_output"), example_output[1].shape)
             mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
         else:
-            hidden_shape = temp.shape
-            set_multiarray_shape(get_output_named(spec, "hidden_states"), hidden_shape)
+            hidden_shape = example_output.shape
+            set_multiarray_shape(get_output_named(spec, "last_hidden_state"), hidden_shape)
 
         mlmodel.input_description["image"] = "Image input"
-        mlmodel.output_description["hidden_states"] = "Hidden states from the last layer"
+        mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)

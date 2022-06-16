@@ -46,7 +46,7 @@ from transformers import (
 )
 from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
-from transformers import ViTModel, ViTForImageClassification
+from transformers import ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
 from transformers.utils import logging
 
 from .coreml_utils import is_any_instance
@@ -132,7 +132,7 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
         from .models import segformer
         return segformer.export(model, **kwargs)
 
-    elif model_type in [ViTModel, ViTForImageClassification]:
+    elif model_type in [ViTModel, ViTForImageClassification, ViTForMaskedImageModeling]:
         from .models import vit
         return vit.export(model, **kwargs)
 
