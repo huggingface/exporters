@@ -147,6 +147,7 @@ Currently, the following PyTorch models can be exported:
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
+| [MobileNetV1](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v1) | `MobileNetV1Model`, `MobileNetV1ForImageClassification` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
@@ -191,6 +192,10 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 - `tokenizer` (required). The `PreTrainedTokenizer` object for the trained model.
 - `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
 - `use_attention_mask` (optional, default is `True`). If true, adds an `attention_mask` input to the exported model.
+
+### MobileNetV1
+
+- `feature_extractor` (required). The `MobileNetV1FeatureExtractor` object for the trained model.
 
 ### MobileViT
 
