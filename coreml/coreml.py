@@ -44,7 +44,8 @@ from transformers import (
     MobileBertForSequenceClassification,
     MobileBertForTokenClassification,
 )
-from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
+from transformers import MobileNetV1Model, MobileNetV1ForImageClassification
+#from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
 from transformers import ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
 from transformers.utils import logging
@@ -124,9 +125,13 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
         from .models import mobilebert
         return mobilebert.export(model, **kwargs)
 
-    elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
-        from .models import mobilevit
-        return mobilevit.export(model, **kwargs)
+    elif model_type in [MobileNetV1Model, MobileNetV1ForImageClassification]:
+        from .models import mobilenet_v1
+        return mobilenet_v1.export(model, **kwargs)
+
+    # elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
+    #     from .models import mobilevit
+    #     return mobilevit.export(model, **kwargs)
 
     elif model_type in [SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation]:
         from .models import segformer
