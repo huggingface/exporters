@@ -50,8 +50,6 @@ from transformers import SegformerModel, SegformerForImageClassification, Segfor
 from transformers import ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
 from transformers.utils import logging
 
-from .coreml_utils import is_any_instance
-
 
 def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> Optional[ct.models.MLModel]:
     """Convert the Hugging Face Transformers model to Core ML format.
@@ -83,7 +81,7 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     kwargs["quantize"] = quantize
     kwargs["legacy"] = legacy
 
-    if is_any_instance(model, [
+    if isinstance(model, (
         BertForQuestionAnswering,
         DistilBertModel,
         DistilBertForMaskedLM,
@@ -91,7 +89,7 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
         DistilBertForQuestionAnswering,
         DistilBertForSequenceClassification,
         DistilBertForTokenClassification,
-    ]):
+    )):
         from .models import distilbert
         return distilbert.export(model, **kwargs)
 

@@ -41,15 +41,15 @@ class Wrapper(torch.nn.Module):
     def forward(self, input_ids, attention_mask=None):
         outputs = self.model(input_ids, attention_mask=attention_mask, return_dict=False)
 
-        if is_any_instance(self.model, [
+        if isinstance(self.model, (
             DistilBertForMaskedLM,
             DistilBertForMultipleChoice,
             DistilBertForSequenceClassification,
             DistilBertForTokenClassification,
-        ]):
+        )):
             return nn.functional.softmax(outputs[0], dim=-1)  # logits
 
-        if is_any_instance(self.model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
+        if isinstance(self.model, (BertForQuestionAnswering, DistilBertForQuestionAnswering)):
             start_scores = nn.functional.softmax(outputs[0], dim=-1)  # start_logits
             end_scores   = nn.functional.softmax(outputs[1], dim=-1)  # end_logits
             return start_scores, end_scores
@@ -95,7 +95,7 @@ def export(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if is_any_instance(torch_model, [DistilBertForSequenceClassification, DistilBertForMultipleChoice]):
+    if isinstance(torch_model, (DistilBertForSequenceClassification, DistilBertForMultipleChoice)):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
@@ -132,7 +132,7 @@ def export(
         set_multiarray_shape(output, example_output.shape)
         mlmodel.output_description["token_scores"] = "Prediction scores for each vocabulary token (after softmax)"
 
-    if is_any_instance(torch_model, [BertForQuestionAnswering, DistilBertForQuestionAnswering]):
+    if isinstance(torch_model, (BertForQuestionAnswering, DistilBertForQuestionAnswering)):
         # Rename the outputs and fill in their shapes.
         output = spec.description.output[0]
         ct.utils.rename_feature(spec, output.name, "start_scores")
@@ -145,10 +145,7 @@ def export(
         mlmodel.output_description["start_scores"] = "Span-start scores (after softmax)"
         mlmodel.output_description["end_scores"] = "Span-end scores (after softmax)"
 
-    if is_any_instance(torch_model, [
-        DistilBertForSequenceClassification,
-        DistilBertForMultipleChoice,
-    ]):
+    if isinstance(torch_model, (DistilBertForSequenceClassification, DistilBertForMultipleChoice)):
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
         spec.description.predictedProbabilitiesName = "probabilities"

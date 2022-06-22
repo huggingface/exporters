@@ -47,13 +47,13 @@ class Wrapper(torch.nn.Module):
         if isinstance(self.model, MobileBertForPreTraining):
             return outputs[0], outputs[1]  # prediction_logits, seq_relationship_logits
 
-        if is_any_instance(self.model, [
+        if isinstance(self.model, (
             MobileBertForMaskedLM,
             MobileBertForMultipleChoice,
             MobileBertForNextSentencePrediction,
             MobileBertForSequenceClassification,
             MobileBertForTokenClassification,
-        ]):
+        )):
             return nn.functional.softmax(outputs[0], dim=-1)  # logits
 
         if isinstance(self.model, MobileBertForQuestionAnswering):
@@ -80,7 +80,7 @@ def export(
         raise ValueError(f"Unknown tokenizer: {tokenizer}")
 
     use_token_type_ids = False
-    if is_any_instance(torch_model, [MobileBertForMultipleChoice, MobileBertForNextSentencePrediction]):
+    if isinstance(torch_model, (MobileBertForMultipleChoice, MobileBertForNextSentencePrediction)):
         use_token_type_ids = True
         use_attention_mask = True
 
@@ -110,7 +110,7 @@ def export(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if is_any_instance(torch_model, [MobileBertForSequenceClassification, MobileBertForMultipleChoice]):
+    if isinstance(torch_model, (MobileBertForSequenceClassification, MobileBertForMultipleChoice)):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
@@ -180,11 +180,11 @@ def export(
         mlmodel.output_description["start_scores"] = "Span-start scores (after softmax)"
         mlmodel.output_description["end_scores"] = "Span-end scores (after softmax)"
 
-    if is_any_instance(torch_model, [
+    if isinstance(torch_model, (
         MobileBertForSequenceClassification,
         MobileBertForNextSentencePrediction,
         MobileBertForMultipleChoice,
-    ]):
+    )):
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
         spec.description.predictedProbabilitiesName = "probabilities"
