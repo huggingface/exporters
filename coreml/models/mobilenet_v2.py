@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Core ML conversion for MobileViT."""
+"""Core ML conversion for MobileNet V2."""
 
 import json
 import numpy as np
@@ -22,10 +22,10 @@ import coremltools as ct
 from coremltools.models.neural_network import quantization_utils
 
 from transformers import (
-    MobileViTFeatureExtractor,
-    MobileViTModel,
-    MobileViTForImageClassification,
-    MobileViTForSemanticSegmentation,
+    MobileNetV2FeatureExtractor,
+    MobileNetV2Model,
+    MobileNetV2ForImageClassification,
+    MobileNetV2ForSemanticSegmentation,
 )
 from ..coreml_utils import *
 
@@ -40,10 +40,10 @@ class Wrapper(torch.nn.Module):
     def forward(self, inputs):
         outputs = self.model(inputs, return_dict=False)
 
-        if isinstance(self.model, MobileViTForImageClassification):
+        if isinstance(self.model, MobileNetV2ForImageClassification):
             return nn.functional.softmax(outputs[0], dim=1)
 
-        if isinstance(self.model, MobileViTForSemanticSegmentation):
+        if isinstance(self.model, MobileNetV2ForSemanticSegmentation):
             x = outputs[0]
             if self.do_upsample:
                 x = nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
@@ -51,26 +51,29 @@ class Wrapper(torch.nn.Module):
                 x = x.argmax(1)
             return x
 
-        if isinstance(self.model, MobileViTModel):
-            return outputs[0], outputs[1]  # last_hidden_state, pooler_output
+        if isinstance(self.model, MobileNetV2Model):
+            if self.model.pooler is not None:
+                return outputs[0], outputs[1]  # last_hidden_state, pooler_output
+            else:
+                return outputs[0]  # last_hidden_state
 
         return None
 
 
 def export(
     torch_model,
-    feature_extractor: MobileViTFeatureExtractor,
+    feature_extractor: MobileNetV2FeatureExtractor,
     do_upsample: bool = True,
     do_argmax: bool = True,
     quantize: str = "float32",
     legacy: bool = False,
     **kwargs,
 ) -> ct.models.MLModel:
-    if not isinstance(feature_extractor, MobileViTFeatureExtractor):
+    if not isinstance(feature_extractor, MobileNetV2FeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
-    scale = 1.0 / 255
-    bias = [ 0.0, 0.0, 0.0 ]
+    scale = 2.0 / 255
+    bias = [ -1.0, -1.0, -1.0 ]
 
     image_size = feature_extractor.crop_size
     image_shape = (1, 3, image_size, image_size)
@@ -88,7 +91,7 @@ def export(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if isinstance(torch_model, MobileViTForImageClassification):
+    if isinstance(torch_model, MobileNetV2ForImageClassification):
         class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
@@ -98,7 +101,7 @@ def export(
         convert_kwargs[key] = value
 
     input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
-                                   color_layout="BGR", channel_first=True) ]
+                                   color_layout="RGB", channel_first=True) ]
 
     mlmodel = ct.convert(
         traced_model,
@@ -113,7 +116,7 @@ def export(
     if torch_model.config.transformers_version:
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
-    if isinstance(torch_model, MobileViTForImageClassification):
+    if isinstance(torch_model, MobileNetV2ForImageClassification):
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
         spec.description.predictedProbabilitiesName = "probabilities"
@@ -122,7 +125,7 @@ def export(
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
-    if isinstance(torch_model, MobileViTForSemanticSegmentation):
+    if isinstance(torch_model, MobileNetV2ForSemanticSegmentation):
         new_output_name = "classLabels" if do_argmax else "probabilities"
 
         # Rename the segmentation output.
@@ -140,19 +143,23 @@ def export(
         mlmodel.user_defined_metadata["com.apple.coreml.model.preview.type"] = "imageSegmenter"
         mlmodel.user_defined_metadata["com.apple.coreml.model.preview.params"] = json.dumps({"labels": labels})
 
-    if isinstance(torch_model, MobileViTModel):
-        # Rename the pooled output.
-        output_names = get_output_names(spec)
-        for output_name in output_names:
-            if output_name != "last_hidden_state":
-                ct.utils.rename_feature(spec, output_name, "pooler_output")
+    if isinstance(torch_model, MobileNetV2Model):
+        last_hidden_state_output = spec.description.output[0]
+        ct.utils.rename_feature(spec, last_hidden_state_output.name, "last_hidden_state")
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
-        mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
 
-        set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output[0].shape)
-        set_multiarray_shape(get_output_named(spec, "pooler_output"), example_output[1].shape)
+        if torch_model.pooler is not None:
+            pooler_output = spec.description.output[1]
+            ct.utils.rename_feature(spec, pooler_output.name, "pooler_output")
+
+            set_multiarray_shape(last_hidden_state_output, example_output[0].shape)
+            set_multiarray_shape(pooler_output, example_output[1].shape)
+
+            mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
+        else:
+            set_multiarray_shape(last_hidden_state_output, example_output.shape)
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)

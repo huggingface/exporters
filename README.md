@@ -148,6 +148,7 @@ Currently, the following PyTorch models can be exported:
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileNetV1](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v1) | `MobileNetV1Model`, `MobileNetV1ForImageClassification` | ✅ |
+| [MobileNetV2](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v2) | `MobileNetV2Model`, `MobileNetV2ForImageClassification`, `MobileNetV2ForSemanticSegmentation` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
@@ -197,9 +198,25 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 
 - `feature_extractor` (required). The `MobileNetV1FeatureExtractor` object for the trained model.
 
+### MobileNetV2
+
+For all models:
+
+- `feature_extractor` (required). The `MobileNetV2FeatureExtractor` object for the trained model.
+
+Specifically for the semantic segmentation model:
+
+- `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
+- `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
+
 ### MobileViT
 
+For all models:
+
 - `feature_extractor` (required). The `MobileViTFeatureExtractor` object for the trained model.
+
+Specifically for the semantic segmentation model:
+
 - `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
 - `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
 
