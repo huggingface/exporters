@@ -17,6 +17,12 @@ from typing import Optional
 
 import coremltools as ct
 
+from transformers import (
+    BeitModel,
+    BeitForImageClassification,
+    BeitForMaskedImageModeling,
+    BeitForSemanticSegmentation,
+)
 from transformers import BertForQuestionAnswering
 from transformers import ConvNextModel, ConvNextForImageClassification
 from transformers import CvtModel, CvtForImageClassification
@@ -91,7 +97,16 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     kwargs["quantize"] = quantize
     kwargs["legacy"] = legacy
 
-    if isinstance(model, (
+    if model_type in [
+        BeitModel,
+        BeitForImageClassification,
+        BeitForMaskedImageModeling,
+        BeitForSemanticSegmentation,
+    ]:
+        from .models import beit
+        return beit.export(model, **kwargs)
+
+    elif isinstance(model, (
         BertForQuestionAnswering,
         DistilBertModel,
         DistilBertForMaskedLM,

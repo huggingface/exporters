@@ -142,6 +142,7 @@ Currently, the following PyTorch models can be exported:
 
 | Model | Types | Core ML |
 |-------|-------| --------|
+| [BEiT](https://huggingface.co/docs/transformers/main/model_doc/beit) | `BeitModel`, `BeitForImageClassification`, `BeitForMaskedImageModeling`, `BeitForSemanticSegmentation` | ✅ |
 | [BERT](https://huggingface.co/docs/transformers/main/model_doc/bert) | `BertForQuestionAnswering` | ✅ |
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
@@ -181,6 +182,12 @@ The following models are known to give errors when attempting conversion to Core
 ## Model-specific conversion options
 
 Pass these additional options into `coreml.export()` or `tflite.export()`.
+
+### BEiT
+
+- `feature_extractor` (required). The `BeitFeatureExtractor` object for the trained model.
+- `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
+- `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
 
 ### BERT, DistilBERT
 
