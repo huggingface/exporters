@@ -146,6 +146,7 @@ Currently, the following PyTorch models can be exported:
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
+| [LeViT](https://huggingface.co/docs/transformers/main/model_doc/levit) | `LevitModel`, `LevitForImageClassification`, `LevitForImageClassificationWithTeacher` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileNetV1](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v1) | `MobileNetV1Model`, `MobileNetV1ForImageClassification` | ✅ |
 | [MobileNetV2](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v2) | `MobileNetV2Model`, `MobileNetV2ForImageClassification`, `MobileNetV2ForSemanticSegmentation` | ✅ |
@@ -188,6 +189,10 @@ Pass these additional options into `coreml.export()` or `tflite.export()`.
 ### ConvNeXT, CvT
 
 - `feature_extractor` (required). The `ConvNextFeatureExtractor` object for the trained model.
+
+### LeViT
+
+- `feature_extractor` (required). The `LevitFeatureExtractor` object for the trained model.
 
 ### MobileBERT
 

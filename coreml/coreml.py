@@ -34,6 +34,7 @@ from transformers import (
     GPT2ForSequenceClassification,
     GPT2ForTokenClassification,
 )
+from transformers import LevitModel, LevitForImageClassification, LevitForImageClassificationWithTeacher
 from transformers import (
     MobileBertModel,
     MobileBertForMaskedLM,
@@ -118,6 +119,10 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     ]:
         from .models import gpt2
         return gpt2.export(model, **kwargs)
+
+    elif model_type in [LevitModel, LevitForImageClassification, LevitForImageClassificationWithTeacher]:
+        from .models import levit
+        return levit.export(model, **kwargs)
 
     elif model_type in [
         MobileBertModel,
