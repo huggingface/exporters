@@ -45,9 +45,17 @@ from transformers import (
     MobileBertForTokenClassification,
 )
 #from transformers import MobileNetV1Model, MobileNetV1ForImageClassification
-from transformers import MobileNetV2Model, MobileNetV2ForImageClassification, MobileNetV2ForSemanticSegmentation
+#from transformers import MobileNetV2Model, MobileNetV2ForImageClassification, MobileNetV2ForSemanticSegmentation
 #from transformers import MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation
 from transformers import SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation
+from transformers import (
+    SqueezeBertModel,
+    SqueezeBertForMaskedLM,
+    SqueezeBertForMultipleChoice,
+    SqueezeBertForQuestionAnswering,
+    SqueezeBertForSequenceClassification,
+    SqueezeBertForTokenClassification,
+)
 from transformers import ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
 from transformers.utils import logging
 
@@ -128,9 +136,9 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     #     from .models import mobilenet_v1
     #     return mobilenet_v1.export(model, **kwargs)
 
-    elif model_type in [MobileNetV2Model, MobileNetV2ForImageClassification, MobileNetV2ForSemanticSegmentation]:
-        from .models import mobilenet_v2
-        return mobilenet_v2.export(model, **kwargs)
+    # elif model_type in [MobileNetV2Model, MobileNetV2ForImageClassification, MobileNetV2ForSemanticSegmentation]:
+    #     from .models import mobilenet_v2
+    #     return mobilenet_v2.export(model, **kwargs)
 
     # elif model_type in [MobileViTModel, MobileViTForImageClassification, MobileViTForSemanticSegmentation]:
     #     from .models import mobilevit
@@ -139,6 +147,17 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     elif model_type in [SegformerModel, SegformerForImageClassification, SegformerForSemanticSegmentation]:
         from .models import segformer
         return segformer.export(model, **kwargs)
+
+    elif model_type in [
+        SqueezeBertModel,
+        SqueezeBertForMaskedLM,
+        SqueezeBertForMultipleChoice,
+        SqueezeBertForQuestionAnswering,
+        SqueezeBertForSequenceClassification,
+        SqueezeBertForTokenClassification,
+    ]:
+        from .models import squeezebert
+        return squeezebert.export(model, **kwargs)
 
     elif model_type in [ViTModel, ViTForImageClassification, ViTForMaskedImageModeling]:
         from .models import vit

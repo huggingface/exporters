@@ -152,6 +152,7 @@ Currently, the following PyTorch models can be exported:
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
 | [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
+| [SqueezeBERT](https://huggingface.co/docs/transformers/main/model_doc/squeezebert) | `SqueezeBertModel`, `SqueezeBertForMaskedLM`, `SqueezeBertForMultipleChoice`, `SqueezeBertForQuestionAnswering`, `SqueezeBertForSequenceClassification`, `SqueezeBertForTokenClassification` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification`, `ViTForMaskedImageModeling` | ✅ |
 
 The following TensorFlow models can be exported:
@@ -232,6 +233,12 @@ Specifically for the semantic segmentation model:
 - `feature_extractor` (required). The `SegformerFeatureExtractor` object for the trained model.
 - `do_upsample` (optional, default is `True`). Scales the output to have the same width and height as the input.
 - `do_argmax` (optional, default is `True`). Whether to perform an argmax operation on the predicted logits.
+
+### SqueezeBERT
+
+- `tokenizer` (required). The `PreTrainedTokenizer` object for the trained model.
+- `sequence_length` (required). The input tensor has shape `(batch, sequence length)`. In the exported model, the sequence length will be a fixed number. The default sequence length is 128.
+- `use_attention_mask` (optional, default is `True`). If true, adds an `attention_mask` input to the exported model.
 
 ### ViT
 
