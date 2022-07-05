@@ -147,12 +147,12 @@ Currently, the following PyTorch models can be exported:
 | [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | `ConvNextModel`, `ConvNextForImageClassification` | ✅ |
 | [CvT](https://huggingface.co/docs/transformers/main/model_doc/cvt) | `CvtModel`, `CvtForImageClassification` | ✅ |
 | [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | `DistilBertModel`, `DistilBertForMaskedLM`, `DistilBertForMultipleChoice`, `DistilBertForQuestionAnswering`, `DistilBertForSequenceClassification`, `DistilBertForTokenClassification` | ✅ |
+| [GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [LeViT](https://huggingface.co/docs/transformers/main/model_doc/levit) | `LevitModel`, `LevitForImageClassification`, `LevitForImageClassificationWithTeacher` | ✅ |
 | [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | `MobileBertModel`, `MobileBertForMaskedLM`, `MobileBertForMultipleChoice`, `MobileBertForNextSentencePrediction`, `MobileBertForPreTraining`, `MobileBertForQuestionAnswering`, `MobileBertForSequenceClassification`, `MobileBertForTokenClassification` | ✅ |
 | [MobileNetV1](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v1) | `MobileNetV1Model`, `MobileNetV1ForImageClassification` | ✅ |
 | [MobileNetV2](https://huggingface.co/docs/transformers/main/model_doc/mobilenet_v2) | `MobileNetV2Model`, `MobileNetV2ForImageClassification`, `MobileNetV2ForSemanticSegmentation` | ✅ |
 | [MobileViT](https://huggingface.co/docs/transformers/main/model_doc/mobilevit) | `MobileViTModel`, `MobileViTForImageClassification`, `MobileViTForSemanticSegmentation` | ✅ |
-| [OpenAI GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2), [DistilGPT2](https://huggingface.co/distilgpt2) | `GPT2Model`, `GPT2LMHeadModel`, `GPT2ForSequenceClassification`, `GPT2ForTokenClassification` | ✅ |
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
 | [SqueezeBERT](https://huggingface.co/docs/transformers/main/model_doc/squeezebert) | `SqueezeBertModel`, `SqueezeBertForMaskedLM`, `SqueezeBertForMultipleChoice`, `SqueezeBertForQuestionAnswering`, `SqueezeBertForSequenceClassification`, `SqueezeBertForTokenClassification` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification`, `ViTForMaskedImageModeling` | ✅ |
@@ -162,6 +162,10 @@ The following TensorFlow models can be exported:
 
 | Model | Types | Core ML | TF Lite |
 |-------|-------| --------|---------|
+| [DistilBERT](https://huggingface.co/docs/transformers/main/model_doc/distilbert) | TODO | ❌ | ❌ |
+| [ConvNeXT](https://huggingface.co/docs/transformers/main/model_doc/convnext) | TODO | ❌ | ❌ |
+| [GPT2](https://huggingface.co/docs/transformers/main/model_doc/gpt2) | TODO | ❌ | ❌ |
+| [MobileBERT](https://huggingface.co/docs/transformers/main/model_doc/mobilebert) | TODO | ❌ | ❌ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | TODO | ❌ | ❌ |
 
 Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not supported.
