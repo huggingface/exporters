@@ -64,6 +64,7 @@ from transformers import (
     SqueezeBertForTokenClassification,
 )
 from transformers import ViTModel, ViTForImageClassification, ViTForMaskedImageModeling
+from transformers import YolosModel, YolosForObjectDetection
 from transformers.utils import logging
 
 
@@ -182,6 +183,10 @@ def export(model, quantize: str = "float32", legacy: bool = False, **kwargs) -> 
     elif model_type in [ViTModel, ViTForImageClassification, ViTForMaskedImageModeling]:
         from .models import vit
         return vit.export(model, **kwargs)
+
+    elif model_type in [YolosModel, YolosForObjectDetection]:
+        from .models import yolos
+        return yolos.export(model, **kwargs)
 
     logger.warning("Cannot convert unknown model type: " + str(model_type))
     return None

@@ -156,6 +156,7 @@ Currently, the following PyTorch models can be exported:
 | [SegFormer](https://huggingface.co/docs/transformers/main/model_doc/segformer) | `SegformerModel`, `SegformerForImageClassification`, `SegformerForSemanticSegmentation` | ✅ |
 | [SqueezeBERT](https://huggingface.co/docs/transformers/main/model_doc/squeezebert) | `SqueezeBertModel`, `SqueezeBertForMaskedLM`, `SqueezeBertForMultipleChoice`, `SqueezeBertForQuestionAnswering`, `SqueezeBertForSequenceClassification`, `SqueezeBertForTokenClassification` | ✅ |
 | [Vision Transformer (ViT)](https://huggingface.co/docs/transformers/main/model_doc/vit) | `ViTModel`, `ViTForImageClassification`, `ViTForMaskedImageModeling` | ✅ |
+| [YOLOS](https://huggingface.co/docs/transformers/main/model_doc/yolos) | `YolosModel`, `YolosForObjectDetection` | ✅ |
 
 The following TensorFlow models can be exported:
 
@@ -257,6 +258,10 @@ Specifically for the semantic segmentation model:
 ### ViT
 
 - `feature_extractor` (required). The `ViTFeatureExtractor` object for the trained model.
+
+### YOLOS
+
+- `feature_extractor` (required). The `YolosFeatureExtractor` object for the trained model.
 
 ## Additional notes
 

@@ -11,39 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Core ML conversion for Convolutional Vision Transformer (CvT)."""
+"""Core ML conversion for YOLOS."""
 
-import numpy as np
 import torch
-from torch import nn
 
 import coremltools as ct
 from coremltools.models.neural_network import quantization_utils
 from coremltools.converters.mil import Builder as mb
 from coremltools.converters.mil import register_torch_op
 from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_OPS_REGISTRY
-from coremltools.converters.mil.frontend._utils import build_einsum_mil
 
-from transformers import ConvNextFeatureExtractor, CvtModel, CvtForImageClassification
+from transformers import YolosFeatureExtractor, YolosModel, YolosForObjectDetection
 from ..coreml_utils import *
 
 
-# coremltools does support einsum but not the equation "bhlt,bhtv->bhlv"
-# so override the implementation of this operation
-if "einsum" in _TORCH_OPS_REGISTRY:
-    del _TORCH_OPS_REGISTRY["einsum"]
+# There is no bicubic upsampling in Core ML, so we'll have to use bilinear.
+# Still seems to work well enough. Note: the bilinear resize is applied to
+# constant tensors, so we could actually remove this op completely!
+if "upsample_bicubic2d" in _TORCH_OPS_REGISTRY:
+    del _TORCH_OPS_REGISTRY["upsample_bicubic2d"]
 
 @register_torch_op
-def einsum(context, node):
-    a = context[node.inputs[1]][0]
-    b = context[node.inputs[1]][1]
-    equation = context[node.inputs[0]].val
-
-    if equation == "bhlt,bhtv->bhlv":
-        x = mb.matmul(x=a, y=b, transpose_x=False, transpose_y=False, name=node.name)
-    else:
-        x = build_einsum_mil(a, b, equation, node.name)
-
+def upsample_bicubic2d(context, node):
+    a = context[node.inputs[0]]
+    b = context[node.inputs[1]]
+    x = mb.resize_bilinear(x=a, target_size_height=b.val[0], target_size_width=b.val[1], name=node.name)
     context.add(x)
 
 
@@ -61,23 +53,23 @@ class Wrapper(torch.nn.Module):
 
         outputs = self.model(inputs, return_dict=False)
 
-        if isinstance(self.model, CvtForImageClassification):
-            return nn.functional.softmax(outputs[0], dim=1)
+        if isinstance(self.model, YolosForObjectDetection):
+            return outputs[0], outputs[1]   # logits, pred_boxes
 
-        if isinstance(self.model, CvtModel):
-            return outputs[0], outputs[1]  # last_hidden_state, cls_token_value
+        if isinstance(self.model, YolosModel):
+            return outputs[0], outputs[1]  # last_hidden_state, pooler_output
 
         return None
 
 
 def export(
     torch_model,
-    feature_extractor: ConvNextFeatureExtractor,
+    feature_extractor: YolosFeatureExtractor,
     quantize: str = "float32",
     legacy: bool = False,
     **kwargs,
 ) -> ct.models.MLModel:
-    if not isinstance(feature_extractor, ConvNextFeatureExtractor):
+    if not isinstance(feature_extractor, YolosFeatureExtractor):
         raise ValueError(f"Unknown feature extractor: {feature_extractor}")
 
     scale = 1.0 / 255
@@ -103,11 +95,6 @@ def export(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    if isinstance(torch_model, CvtForImageClassification):
-        class_labels = [torch_model.config.id2label[x] for x in range(torch_model.config.num_labels)]
-        classifier_config = ct.ClassifierConfig(class_labels)
-        convert_kwargs['classifier_config'] = classifier_config
-
     # pass any additional arguments to ct.convert()
     for key, value in kwargs.items():
         convert_kwargs[key] = value
@@ -128,27 +115,32 @@ def export(
     if torch_model.config.transformers_version:
         user_defined_metadata["transformers_version"] = torch_model.config.transformers_version
 
-    if isinstance(torch_model, CvtForImageClassification):
-        probs_output_name = spec.description.predictedProbabilitiesName
-        ct.utils.rename_feature(spec, probs_output_name, "probabilities")
-        spec.description.predictedProbabilitiesName = "probabilities"
+    if isinstance(torch_model, YolosForObjectDetection):
+        output_names = get_output_names(spec)
+        ct.utils.rename_feature(spec, output_names[0], "logits")
+        ct.utils.rename_feature(spec, output_names[1], "pred_boxes")
 
-        mlmodel.input_description["image"] = "Image to be classified"
-        mlmodel.output_description["probabilities"] = "Probability of each category"
-        mlmodel.output_description["classLabel"] = "Category with the highest score"
+        set_multiarray_shape(get_output_named(spec, "logits"), example_output[0].shape)
+        set_multiarray_shape(get_output_named(spec, "pred_boxes"), example_output[1].shape)
 
-    if isinstance(torch_model, CvtModel):
-        # Rename the outputs.
+        mlmodel.input_description["image"] = "Image input"
+        mlmodel.output_description["logits"] = "Classification logits (including no-object) for all queries"
+        mlmodel.output_description["pred_boxes"] = "Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height)"
+
+        labels = get_labels_as_list(torch_model)
+        user_defined_metadata["classes"] = ",".join(labels)
+
+    if isinstance(torch_model, YolosModel):
         output_names = get_output_names(spec)
         ct.utils.rename_feature(spec, output_names[0], "last_hidden_state")
-        ct.utils.rename_feature(spec, output_names[1], "cls_token_value")
+        ct.utils.rename_feature(spec, output_names[1], "pooler_output")
 
         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output[0].shape)
-        set_multiarray_shape(get_output_named(spec, "cls_token_value"), example_output[1].shape)
+        set_multiarray_shape(get_output_named(spec, "pooler_output"), example_output[1].shape)
 
         mlmodel.input_description["image"] = "Image input"
         mlmodel.output_description["last_hidden_state"] = "Sequence of hidden-states at the output of the last layer of the model"
-        mlmodel.output_description["cls_token_value"] = "Classification token at the output of the last layer of the model"
+        mlmodel.output_description["pooler_output"] = "Last layer hidden-state after a pooling operation on the spatial dimensions"
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
