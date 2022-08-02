@@ -74,6 +74,16 @@ def get_labels_as_list(model):
     return labels
 
 
+def fix_output(mlmodel: ct.models.MLModel, output, name: str, description: str, shape = None):
+    """
+    """
+    ct.utils.rename_feature(mlmodel._spec, output.name, name)
+    mlmodel.output_description["logits"] = description
+    if shape is not None:
+        set_multiarray_shape(output, shape)
+
+
+
 if is_torch_available():
     import torch
 
@@ -84,26 +94,23 @@ if is_torch_available():
             self.model = model.eval()
             self.config = config
 
-        def forward(self, inputs): #, bool_masked_pos=None):
-            # if bool_masked_pos is None:
-            #     outputs = self.model(inputs, return_dict=False)
-            # else:
-            #     outputs = self.model(inputs, bool_masked_pos=bool_masked_pos, return_dict=False)
-
-            # TODO: pass in extra args
-            outputs = self.model(inputs, return_dict=False)
+        def forward(self, inputs, extra_input1=None):
+            if self.config.task == "masked-im":
+                outputs = self.model(inputs, bool_masked_pos=extra_input1, return_dict=False)
+            else:
+                outputs = self.model(inputs, return_dict=False)
 
             if self.config.task == "image-classification":
                 return torch.nn.functional.softmax(outputs[0], dim=1)  # logits
 
-            # if isinstance(self.model, ViTForMaskedImageModeling):
-            #     return outputs[1]  # logits
+            if self.config.task == "masked-im":
+                return outputs[1]  # logits
 
-            # if isinstance(self.model, ViTModel):
-            #     if self.model.pooler is not None:
-            #         return outputs[0], outputs[1]  # last_hidden_state, pooler_output
-            #     else:
-            #         return outputs[0]  # last_hidden_state
+            if self.config.task == "default":
+                if hasattr(self.model, "pooler") and self.model.pooler is not None:
+                    return outputs[0], outputs[1]  # last_hidden_state, pooler_output
+                else:
+                    return outputs[0]  # last_hidden_state
 
             raise AssertionError(f"Cannot compute outputs for unknown task '{self.config.task}'")
 
@@ -160,10 +167,12 @@ def export_pytorch(
     pixel_values = torch.rand(image_shape) * 2.0 - 1.0
     example_input = [ pixel_values ]
 
-    # if isinstance(torch_model, ViTForMaskedImageModeling):
-    #     num_patches = (torch_model.config.image_size // torch_model.config.patch_size) ** 2
-    #     bool_masked_pos = torch.randint(low=0, high=2, size=(1, num_patches)).bool()
-    #     example_input.append(bool_masked_pos)
+    # TODO: also add to Config dummy inputs
+
+    if config.task == "masked-im":
+        num_patches = (model.config.image_size // model.config.patch_size) ** 2
+        bool_masked_pos = torch.randint(low=0, high=2, size=(1, num_patches)).bool()
+        example_input.append(bool_masked_pos)
 
     wrapper = Wrapper(preprocessor, model, config).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
@@ -191,8 +200,8 @@ def export_pytorch(
     input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                                    color_layout="RGB", channel_first=True) ]
 
-    # if isinstance(torch_model, ViTForMaskedImageModeling):
-    #     input_tensors.append(ct.TensorType(name="bool_masked_pos", shape=bool_masked_pos.shape, dtype=np.int32))
+    if config.task == "masked-im":
+        input_tensors.append(ct.TensorType(name="bool_masked_pos", shape=bool_masked_pos.shape, dtype=np.int32))
 
     mlmodel = ct.convert(
         traced_model,
@@ -216,32 +225,38 @@ def export_pytorch(
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
-    # if isinstance(torch_model, ViTForMaskedImageModeling):
-    #     # Rename the output and fill in its shape.
-    #     output = spec.description.output[0]
-    #     ct.utils.rename_feature(spec, output.name, "logits")
-    #     set_multiarray_shape(output, example_output.shape)
-    #     mlmodel.output_description["logits"] = "Prediction scores (before softmax)"
+    if config.task == "masked-im":
+        # output = spec.description.output[0]
+        # ct.utils.rename_feature(spec, output.name, "logits")
+        # set_multiarray_shape(output, example_output.shape)
+        # mlmodel.output_description["logits"] = "Prediction scores (before softmax)"
 
-    # if isinstance(torch_model, ViTModel):
-    #     ct.utils.rename_feature(spec, "hidden_states", "last_hidden_state")
+        fix_output(
+            mlmodel=mlmodel,
+            output=spec.description.output[0],
+            name="logits",
+            description="Prediction scores (before softmax)",
+            shape=example_output.shape
+        )
 
-    #     # Rename the output from the pooler.
-    #     if torch_model.pooler is not None:
-    #         output_names = get_output_names(spec)
-    #         for output_name in output_names:
-    #             if output_name != "last_hidden_state":
-    #                 ct.utils.rename_feature(spec, output_name, "pooler_output")
+    if config.task == "default":
+        last_hidden_state_output = spec.description.output[0]
+        ct.utils.rename_feature(spec, last_hidden_state_output.name, "last_hidden_state")
+        mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
 
-    #     if torch_model.pooler is not None:
-    #         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output[0].shape)
-    #         set_multiarray_shape(get_output_named(spec, "pooler_output"), example_output[1].shape)
-    #         mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
-    #     else:
-    #         set_multiarray_shape(get_output_named(spec, "last_hidden_state"), example_output.shape)
+        if isinstance(example_output, (tuple, list)):
+            set_multiarray_shape(last_hidden_state_output, example_output[0].shape)
+        else:
+            set_multiarray_shape(last_hidden_state_output, example_output.shape)
 
-    #     mlmodel.input_description["image"] = "Image input"
-    #     mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
+        #TODO: only if image model
+        mlmodel.input_description["image"] = "Image input"
+
+        if hasattr(model, "pooler") and model.pooler is not None:
+            pooler_output = spec.description.output[1]
+            ct.utils.rename_feature(spec, pooler_output.name, "pooler_output")
+            set_multiarray_shape(pooler_output, example_output[1].shape)
+            mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
