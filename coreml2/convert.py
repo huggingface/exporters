@@ -74,14 +74,32 @@ def get_labels_as_list(model):
     return labels
 
 
-def fix_output(mlmodel: ct.models.MLModel, output, name: str, description: str, shape = None):
+def fix_output(
+    mlmodel: ct.models.MLModel,
+    output: ct.proto.Model_pb2.FeatureDescription,
+    name: str,
+    description: str,
+    shape: Optional[Tuple[int]] = None
+):
     """
+    Rename model output and fill in its expected shape
+
+    Args:
+        mlmodel (`ct.models.MLModel`):
+            the Core ML model object
+        output (`ct.proto.Model_pb2.FeatureDescription`):
+            the output protobuf object from the Core ML model's spec
+        name (`str`):
+            the new name for the model output
+        description (`str`):
+            the new description for the model output
+        shape (`tuple`, *optional*, default is `None`):
+            the expected shape for the output tensor
     """
     ct.utils.rename_feature(mlmodel._spec, output.name, name)
-    mlmodel.output_description["logits"] = description
+    mlmodel.output_description[name] = description
     if shape is not None:
         set_multiarray_shape(output, shape)
-
 
 
 if is_torch_available():
@@ -126,7 +144,7 @@ def export_pytorch(
     Export a PyTorch model to Core ML format
 
     Args:
-        preprocessor: ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
+        preprocessor ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
             The preprocessor used for encoding the data.
         model ([`PreTrainedModel`]):
             The model to export.
@@ -181,6 +199,11 @@ def export_pytorch(
     with torch.no_grad():
         example_output = traced_model(*example_input)
 
+    if isinstance(example_output, (tuple, list)):
+        example_output = [x.numpy() for x in example_output]
+    else:
+        example_output = example_output.numpy()
+
     convert_kwargs = { }
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
@@ -196,7 +219,6 @@ def export_pytorch(
     #     convert_kwargs[key] = value
 
     # TODO: depends on task / Config
-
     input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                                    color_layout="RGB", channel_first=True) ]
 
@@ -216,6 +238,9 @@ def export_pytorch(
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
+    #TODO: only if image model
+    mlmodel.input_description["image"] = "Image input"
+
     if config.task == "image-classification":
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
@@ -225,38 +250,37 @@ def export_pytorch(
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
-    if config.task == "masked-im":
-        # output = spec.description.output[0]
-        # ct.utils.rename_feature(spec, output.name, "logits")
-        # set_multiarray_shape(output, example_output.shape)
-        # mlmodel.output_description["logits"] = "Prediction scores (before softmax)"
+    if isinstance(example_output, (tuple, list)):
+        first_output_shape = example_output[0].shape
+    else:
+        first_output_shape = example_output.shape
 
+    if config.task == "masked-im":
         fix_output(
             mlmodel=mlmodel,
             output=spec.description.output[0],
             name="logits",
             description="Prediction scores (before softmax)",
-            shape=example_output.shape
+            shape=first_output_shape,
         )
 
     if config.task == "default":
-        last_hidden_state_output = spec.description.output[0]
-        ct.utils.rename_feature(spec, last_hidden_state_output.name, "last_hidden_state")
-        mlmodel.output_description["last_hidden_state"] = "Hidden states from the last layer"
-
-        if isinstance(example_output, (tuple, list)):
-            set_multiarray_shape(last_hidden_state_output, example_output[0].shape)
-        else:
-            set_multiarray_shape(last_hidden_state_output, example_output.shape)
-
-        #TODO: only if image model
-        mlmodel.input_description["image"] = "Image input"
+        fix_output(
+            mlmodel=mlmodel,
+            output=spec.description.output[0],
+            name="last_hidden_state",
+            description="Hidden states from the last layer",
+            shape=first_output_shape,
+        )
 
         if hasattr(model, "pooler") and model.pooler is not None:
-            pooler_output = spec.description.output[1]
-            ct.utils.rename_feature(spec, pooler_output.name, "pooler_output")
-            set_multiarray_shape(pooler_output, example_output[1].shape)
-            mlmodel.output_description["pooler_output"] = "Output from the global pooling layer"
+            fix_output(
+                mlmodel=mlmodel,
+                output=spec.description.output[1],
+                name="pooler_output",
+                description="Output from the global pooling layer",
+                shape=example_output[1].shape,
+            )
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
@@ -281,7 +305,7 @@ def export_tensorflow(
     Export a TensorFlow model to Core ML format
 
     Args:
-        preprocessor: ([`PreTrainedTokenizer`] or [`FeatureExtractionMixin`]):
+        preprocessor ([`PreTrainedTokenizer`] or [`FeatureExtractionMixin`]):
             The preprocessor used for encoding the data.
         model ([`TFPreTrainedModel`]):
             The model to export.
@@ -310,7 +334,7 @@ def export(
     Export a Pytorch or TensorFlow model to Core ML format
 
     Args:
-        preprocessor: ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
+        preprocessor ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
             The preprocessor used for encoding the data.
         model ([`PreTrainedModel`] or [`TFPreTrainedModel`]):
             The model to export.
