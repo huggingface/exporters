@@ -164,41 +164,21 @@ def export_pytorch(
 
     logger.info(f"Using framework PyTorch: {torch.__version__}")
 
-    # TODO: get the scale + bias from the Config object
+    dummy_inputs = config.generate_dummy_inputs(preprocessor)
 
-    feature_extractor = preprocessor
+    # Convert the dummy inputs into a list of Torch tensors.
+    example_input = [torch.tensor(x) for x in dummy_inputs.values()]
 
-    scale = 1.0 / (feature_extractor.image_std[0] * 255)
-    bias = [
-        -feature_extractor.image_mean[0] / feature_extractor.image_std[0],
-        -feature_extractor.image_mean[1] / feature_extractor.image_std[1],
-        -feature_extractor.image_mean[2] / feature_extractor.image_std[2],
-    ]
-
-    # TODO: get dummy input from the Config object
-    # NOTE: we're going to be applying the std in the Wrapper so do that thing
-    # where we use a different std on the feature extractor?
-    #    maybe that isn't needed for the dummy inputs
-
-    image_size = feature_extractor.size
-    image_shape = (1, 3, image_size, image_size)
-    pixel_values = torch.rand(image_shape) * 2.0 - 1.0
-    example_input = [ pixel_values ]
-
-    # TODO: also add to Config dummy inputs
-
-    if config.task == "masked-im":
-        num_patches = (model.config.image_size // model.config.patch_size) ** 2
-        bool_masked_pos = torch.randint(low=0, high=2, size=(1, num_patches)).bool()
-        example_input.append(bool_masked_pos)
-
+    # Trace the model. The wrapper class is needed for additional pre- and postprocessing
+    # on the input and output tensors.
     wrapper = Wrapper(preprocessor, model, config).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
-    # Run the PyTorch model, to get the shapes of the output tensors.
+    # Run the PyTorch model to get the shapes of the output tensors.
     with torch.no_grad():
         example_output = traced_model(*example_input)
 
+    # Convert the model output back to numpy arrays.
     if isinstance(example_output, (tuple, list)):
         example_output = [x.numpy() for x in example_output]
     else:
@@ -207,23 +187,32 @@ def export_pytorch(
     convert_kwargs = { }
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
+    # pass any additional arguments to ct.convert()
+    # for key, value in kwargs.items():
+    #     convert_kwargs[key] = value
 
-    # if isinstance(torch_model, ViTForImageClassification):
     if config.task == "image-classification":
         class_labels = [model.config.id2label[x] for x in range(model.config.num_labels)]
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
 
-    # pass any additional arguments to ct.convert()
-    # for key, value in kwargs.items():
-    #     convert_kwargs[key] = value
-
     # TODO: depends on task / Config
+    # image_size = feature_extractor.size
+    # image_shape = (1, 3, image_size, image_size)
+    image_shape = dummy_inputs["pixel_values"].shape
+    feature_extractor = preprocessor
+    scale = 1.0 / (feature_extractor.image_std[0] * 255)
+    bias = [
+        -feature_extractor.image_mean[0] / feature_extractor.image_std[0],
+        -feature_extractor.image_mean[1] / feature_extractor.image_std[1],
+        -feature_extractor.image_mean[2] / feature_extractor.image_std[2],
+    ]
     input_tensors = [ ct.ImageType(name="image", shape=image_shape, scale=scale, bias=bias,
                                    color_layout="RGB", channel_first=True) ]
 
     if config.task == "masked-im":
-        input_tensors.append(ct.TensorType(name="bool_masked_pos", shape=bool_masked_pos.shape, dtype=np.int32))
+        bool_masked_pos_shape = dummy_inputs["bool_masked_pos"].shape
+        input_tensors.append(ct.TensorType(name="bool_masked_pos", shape=bool_masked_pos_shape, dtype=np.int32))
 
     mlmodel = ct.convert(
         traced_model,

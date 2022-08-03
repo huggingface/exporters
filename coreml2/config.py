@@ -16,10 +16,10 @@
 # import dataclasses
 # import warnings
 from abc import ABC, abstractmethod
-# from collections import OrderedDict
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
-# import numpy as np
+import numpy as np
 # from packaging import version
 
 from transformers.utils import (
@@ -105,6 +105,10 @@ class CoreMLConfig(ABC):
         """
         return cls(config, task=task)
 
+    # @property
+    # def inputs(self) -> OrderedDict[str, Any]:
+
+
 #     @property
 #     @abstractmethod
 #     def inputs(self) -> Mapping[str, Mapping[int, str]]:
@@ -172,16 +176,6 @@ class CoreMLConfig(ABC):
 #         return OnnxConfig.default_fixed_num_choices
 
 #     @property
-#     def default_onnx_opset(self) -> int:
-#         """
-#         Which onnx opset to use when exporting the model
-
-#         Returns:
-#             Integer ONNX Opset version
-#         """
-#         return DEFAULT_ONNX_OPSET
-
-#     @property
 #     def atol_for_validation(self) -> float:
 #         """
 #         What absolute tolerance value to use during model conversion validation.
@@ -191,144 +185,47 @@ class CoreMLConfig(ABC):
 #         """
 #         return 1e-5
 
-#     @property
-#     def is_torch_support_available(self) -> bool:
-#         """
-#         The minimum PyTorch version required to export the model.
+    def generate_dummy_inputs(
+        self,
+        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
+    ) -> OrderedDict[str, np.ndarray]:
+        """
+        Generate inputs to provide to the Core ML exporter
 
-#         Returns:
-#             `bool`: Whether the installed version of PyTorch is compatible with the model.
-#         """
-#         if is_torch_available():
-#             from transformers.utils import torch_version
+        Args:
+            preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
+                The preprocessor associated with this model configuration.
 
-#             return torch_version >= self.torch_onnx_minimum_version
-#         else:
-#             return False
+        Returns:
+            OrderedDict[str, np.ndarray] holding the tensors to provide to the model's forward function
+        """
+        from transformers.feature_extraction_utils import FeatureExtractionMixin
+        from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-#     @staticmethod
-#     def use_external_data_format(num_parameters: int) -> bool:
-#         """
-#         Flag indicating if the model requires using external data format
+        inputs = OrderedDict()
 
-#         Args:
-#             num_parameters: Number of parameter on the model
+        if isinstance(preprocessor, PreTrainedTokenizerBase):
+            # TODO: implement for text-based models
+            pass
 
-#         Returns:
-#             True if model.num_parameters() * size_of(float32) >= 2Gb False otherwise
-#         """
+        elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
 
-#         return (
-#             compute_serialized_parameters_size(num_parameters, ParameterFormat.Float)
-#             >= EXTERNAL_DATA_FORMAT_SIZE_LIMIT
-#         )
+            if self.task in ["image-classification", "masked-im"]:
+                image_size = preprocessor.size
+                pixel_values = np.random.rand(1, 3, image_size, image_size).astype(np.float32) * 2.0 - 1.0
+                inputs["pixel_values"] = pixel_values
 
-#     def _generate_dummy_images(
-#         self, batch_size: int = 2, num_channels: int = 3, image_height: int = 40, image_width: int = 40
-#     ):
-#         images = []
-#         for _ in range(batch_size):
-#             data = np.random.rand(image_height, image_width, num_channels) * 255
-#             images.append(Image.fromarray(data.astype("uint8")).convert("RGB"))
-#         return images
+            if self.task == "masked-im":
+                num_patches = (self._config.image_size // self._config.patch_size) ** 2
+                bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
+                inputs["bool_masked_pos"] = bool_masked_pos
 
-#     def generate_dummy_inputs(
-#         self,
-#         preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
-#         batch_size: int = -1,
-#         seq_length: int = -1,
-#         num_choices: int = -1,
-#         is_pair: bool = False,
-#         framework: Optional[TensorType] = None,
-#         num_channels: int = 3,
-#         image_width: int = 40,
-#         image_height: int = 40,
-#         tokenizer: "PreTrainedTokenizerBase" = None,
-#     ) -> Mapping[str, Any]:
-#         """
-#         Generate inputs to provide to the ONNX exporter for the specific framework
+        else:
+            raise ValueError(
+                "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
+            )
 
-#         Args:
-#             preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
-#                 The preprocessor associated with this model configuration.
-#             batch_size (`int`, *optional*, defaults to -1):
-#                 The batch size to export the model for (-1 means dynamic axis).
-#             num_choices (`int`, *optional*, defaults to -1):
-#                 The number of candidate answers provided for multiple choice task (-1 means dynamic axis).
-#             seq_length (`int`, *optional*, defaults to -1):
-#                 The sequence length to export the model for (-1 means dynamic axis).
-#             is_pair (`bool`, *optional*, defaults to `False`):
-#                 Indicate if the input is a pair (sentence 1, sentence 2)
-#             framework (`TensorType`, *optional*, defaults to `None`):
-#                 The framework (PyTorch or TensorFlow) that the tokenizer will generate tensors for.
-#             num_channels (`int`, *optional*, defaults to 3):
-#                 The number of channels of the generated images.
-#             image_width (`int`, *optional*, defaults to 40):
-#                 The width of the generated images.
-#             image_height (`int`, *optional*, defaults to 40):
-#                 The height of the generated images.
-
-#         Returns:
-#             Mapping[str, Tensor] holding the kwargs to provide to the model's forward function
-#         """
-#         from ..feature_extraction_utils import FeatureExtractionMixin
-#         from ..tokenization_utils_base import PreTrainedTokenizerBase
-
-#         if isinstance(preprocessor, PreTrainedTokenizerBase) and tokenizer is not None:
-#             raise ValueError("You cannot provide both a tokenizer and a preprocessor to generate dummy inputs.")
-#         if tokenizer is not None:
-#             warnings.warn(
-#                 "The `tokenizer` argument is deprecated and will be removed in version 5 of Transformers. Use"
-#                 " `preprocessor` instead.",
-#                 FutureWarning,
-#             )
-#             logger.warning("Overwriting the `preprocessor` argument with `tokenizer` to generate dummmy inputs.")
-#             preprocessor = tokenizer
-#         if isinstance(preprocessor, PreTrainedTokenizerBase):
-#             # If dynamic axis (-1) we forward with a fixed dimension of 2 samples to avoid optimizations made by ONNX
-#             batch_size = compute_effective_axis_dimension(
-#                 batch_size, fixed_dimension=OnnxConfig.default_fixed_batch, num_token_to_add=0
-#             )
-#             # If dynamic axis (-1) we forward with a fixed dimension of 8 tokens to avoid optimizations made by ONNX
-#             token_to_add = preprocessor.num_special_tokens_to_add(is_pair)
-#             seq_length = compute_effective_axis_dimension(
-#                 seq_length, fixed_dimension=OnnxConfig.default_fixed_sequence, num_token_to_add=token_to_add
-#             )
-#             # Generate dummy inputs according to compute batch and sequence
-#             dummy_input = [" ".join([preprocessor.unk_token]) * seq_length] * batch_size
-#             if self.task == "multiple-choice":
-#                 # If dynamic axis (-1) we forward with a fixed dimension of 4 candidate answers to avoid optimizations
-#                 # made by ONNX
-#                 num_choices = compute_effective_axis_dimension(
-#                     num_choices, fixed_dimension=OnnxConfig.default_fixed_num_choices, num_token_to_add=0
-#                 )
-#                 dummy_input = dummy_input * num_choices
-#                 # The shape of the tokenized inputs values is [batch_size * num_choices, seq_length]
-#                 tokenized_input = preprocessor(dummy_input, text_pair=dummy_input)
-#                 # Unflatten the tokenized inputs values expanding it to the shape [batch_size, num_choices, seq_length]
-#                 for k, v in tokenized_input.items():
-#                     tokenized_input[k] = [v[i : i + num_choices] for i in range(0, len(v), num_choices)]
-#                 return dict(tokenized_input.convert_to_tensors(tensor_type=framework))
-#             return dict(preprocessor(dummy_input, return_tensors=framework))
-#         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
-#             # If dynamic axis (-1) we forward with a fixed dimension of 2 samples to avoid optimizations made by ONNX
-#             batch_size = compute_effective_axis_dimension(batch_size, fixed_dimension=OnnxConfig.default_fixed_batch)
-#             dummy_input = self._generate_dummy_images(batch_size, num_channels, image_height, image_width)
-#             return dict(preprocessor(images=dummy_input, return_tensors=framework))
-#         else:
-#             raise ValueError(
-#                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
-#             )
-
-#     def patch_ops(self):
-#         for spec in self._patching_specs:
-#             custom_op = spec.custom_op if spec.op_wrapper is None else spec.op_wrapper(spec.custom_op)
-#             setattr(spec.o, spec.name, custom_op)
-
-#     def restore_ops(self):
-#         for spec in self._patching_specs:
-#             orig_op = spec.orig_op if spec.op_wrapper is None else spec.op_wrapper(spec.orig_op)
-#             setattr(spec.o, spec.name, orig_op)
+        return inputs
 
 #     @classmethod
 #     def flatten_output_collection_property(cls, name: str, field: Iterable[Any]) -> Dict[str, Any]:
