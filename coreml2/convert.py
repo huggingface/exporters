@@ -205,6 +205,7 @@ def export_pytorch(
     config: CoreMLConfig,
     quantize: str = "float32",
     legacy: bool = False,
+    compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
     Export a PyTorch model to Core ML format
@@ -221,6 +222,8 @@ def export_pytorch(
         legacy (`bool`, *optional*, defaults to `False`):
             If `True`, the converter will produce a model in the older NeuralNetwork format.
             By default, the ML Program format will be used.
+        compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
+            Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
     Returns:
         `ct.models.MLModel`: the Core ML model object
@@ -252,9 +255,6 @@ def export_pytorch(
 
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
-    # pass any additional arguments to ct.convert()
-    # for key, value in kwargs.items():
-    #     convert_kwargs[key] = value
 
     # For classification models, add the labels into the Core ML model and
     # designate it as the special `classifier` model type.
@@ -269,6 +269,7 @@ def export_pytorch(
         traced_model,
         inputs=input_tensors,
         convert_to="neuralnetwork" if legacy else "mlprogram",
+        compute_units=compute_units,
         **convert_kwargs,
     )
 
@@ -342,6 +343,7 @@ def export_tensorflow(
     config: CoreMLConfig,
     quantize: str = "float32",
     legacy: bool = False,
+    compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
     Export a TensorFlow model to Core ML format
@@ -358,6 +360,8 @@ def export_tensorflow(
         legacy (`bool`, *optional*, defaults to `False`):
             If `True`, the converter will produce a model in the older NeuralNetwork format.
             By default, the ML Program format will be used.
+        compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
+            Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
     Returns:
         `ct.models.MLModel`: the Core ML model object
@@ -371,6 +375,7 @@ def export(
     config: CoreMLConfig,
     quantize: str = "float32",
     legacy: bool = False,
+    compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
     Export a Pytorch or TensorFlow model to Core ML format
@@ -387,6 +392,8 @@ def export(
         legacy (`bool`, *optional*, defaults to `False`):
             If `True`, the converter will produce a model in the older NeuralNetwork format.
             By default, the ML Program format will be used.
+        compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
+            Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
     Returns:
         `ct.models.MLModel`: the Core ML model object
@@ -398,8 +405,8 @@ def export(
         )
 
     if is_torch_available() and issubclass(type(model), PreTrainedModel):
-        return export_pytorch(preprocessor, model, config, quantize, legacy)
+        return export_pytorch(preprocessor, model, config, quantize, legacy, compute_units)
     elif is_tf_available() and issubclass(type(model), TFPreTrainedModel):
-        return export_tensorflow(preprocessor, model, config, quantize, legacy)
+        return export_tensorflow(preprocessor, model, config, quantize, legacy, compute_units)
     else:
         raise ValueError(f"Cannot convert unknown model type: {type(model)}")
