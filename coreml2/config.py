@@ -105,16 +105,54 @@ class CoreMLConfig(ABC):
         """
         return cls(config, task=task)
 
-#     @property
-#     @abstractmethod
-#     def inputs(self) -> Mapping[str, Mapping[int, str]]:
-#         """
-#         Mapping containing the axis definition of the input tensors to provide to the model
+    @property
+    def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
+        """
+        Ordered mapping of the inputs in the model
 
-#         Returns:
-#             For each input: its name associated to the axes symbolic name and the axis position within the tensor
-#         """
-#         raise NotImplementedError()
+        Override this function to change the name of the inputs, their description strings,
+        or any of the additional configuration options.
+
+        Note: You are not allowed to change the order of the inputs!
+
+        Image inputs can have the following options:
+
+        - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering
+        - `"image_width"` and `"image_height"`: override the expected image size
+        """
+        if self.task == "image-classification":
+            return OrderedDict(
+                [
+                    (
+                        "image",
+                        {
+                            "description": "Image to be classified",
+                            "color_layout": "RGB",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task == "masked-im":
+            return OrderedDict(
+                [
+                    (
+                        "image",
+                        {
+                            "description": "Input image",
+                            "color_layout": "RGB",
+                        }
+                    ),
+                    (
+                        "bool_masked_pos",
+                        {
+                            "description": "Indicates which patches are masked (1) and which aren't (0)"
+                        }
+                    ),
+                ]
+            )
+
+        raise AssertionError("Unsupported task '{self.task}'")
 
 #     @property
 #     def outputs(self) -> Mapping[str, Mapping[int, str]]:
@@ -184,7 +222,7 @@ class CoreMLConfig(ABC):
     def generate_dummy_inputs(
         self,
         preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
-    ) -> OrderedDict[str, np.ndarray]:
+    ) -> Mapping[str, np.ndarray]:
         """
         Generate inputs to provide to the Core ML exporter
 
@@ -193,35 +231,39 @@ class CoreMLConfig(ABC):
                 The preprocessor associated with this model configuration.
 
         Returns:
-            OrderedDict[str, np.ndarray] holding the tensors to provide to the model's forward function
+            `Mapping[str, np.ndarray]` holding the tensors to provide to the model's forward function
         """
         from transformers.feature_extraction_utils import FeatureExtractionMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-        inputs = OrderedDict()
+        input_names = list(self.inputs.keys())
+        dummy_inputs = {}
 
         if isinstance(preprocessor, PreTrainedTokenizerBase):
             # TODO: implement for text-based models
             pass
 
         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
-
             if self.task in ["image-classification", "masked-im"]:
-                image_size = preprocessor.size
-                pixel_values = np.random.rand(1, 3, image_size, image_size).astype(np.float32) * 2.0 - 1.0
-                inputs["pixel_values"] = pixel_values
+                if isinstance(preprocessor.size, tuple):
+                    image_width, image_height = preprocessor.size
+                else:
+                    image_width = image_height = preprocessor.size
+
+                pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
+                dummy_inputs[input_names.pop(0)] = pixel_values
 
             if self.task == "masked-im":
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
                 bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
-                inputs["bool_masked_pos"] = bool_masked_pos
+                dummy_inputs[input_names.pop(0)] = bool_masked_pos
 
         else:
             raise ValueError(
                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
             )
 
-        return inputs
+        return dummy_inputs
 
 #     @classmethod
 #     def flatten_output_collection_property(cls, name: str, field: Iterable[Any]) -> Dict[str, Any]:

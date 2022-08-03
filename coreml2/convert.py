@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import OrderedDict
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Any
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Mapping, Any
 
 import coremltools as ct
 import numpy as np
@@ -43,12 +42,12 @@ if TYPE_CHECKING:
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 
-def get_input_named(spec, name):
-    """Return the input node with the given name in the Core ML model."""
-    for out in spec.description.input:
-        if out.name == name:
-            return out
-    return None
+# def get_input_named(spec, name):
+#     """Return the input node with the given name in the Core ML model."""
+#     for out in spec.description.input:
+#         if out.name == name:
+#             return out
+#     return None
 
 
 def get_output_names(spec):
@@ -114,7 +113,7 @@ def fix_output(
 def _get_input_types(
     preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
     config: CoreMLConfig,
-    dummy_inputs: OrderedDict[str, np.ndarray],
+    dummy_inputs: Mapping[str, np.ndarray],
 ) -> List[Union[ct.ImageType, ct.TensorType]]:
     """
     Create the ct.InputType objects that describe the inputs to the Core ML model
@@ -124,12 +123,13 @@ def _get_input_types(
             The preprocessor used for encoding the data.
         config ([`~coreml.config.CoreMLConfig`]):
             The Core ML configuration associated with the exported model.
-        dummy_inputs (`OrderedDict[str, np.ndarray]`):
+        dummy_inputs (`Mapping[str, np.ndarray]`):
             The dummy input tensors that describe the expected shapes of the inputs.
 
     Returns:
         `List[Union[ct.ImageType, ct.TensorType]]`: ordered list of input types
     """
+    input_defs = config.inputs
     input_types = []
 
     if config.task in ["image-classification", "masked-im"]:
@@ -140,23 +140,28 @@ def _get_input_types(
             -preprocessor.image_mean[2] / preprocessor.image_std[2],
         ]
 
+        input_name, input_config = input_defs.popitem(last=False)
+        color_layout = input_config.get("color_layout", "RGB")
+
         input_types.append(
             ct.ImageType(
-                name="image",
-                shape=dummy_inputs["pixel_values"].shape,
+                name=input_name,
+                shape=dummy_inputs[input_name].shape,
                 scale=scale,
                 bias=bias,
-                color_layout="RGB",
-                channel_first=True
+                color_layout=color_layout,
+                channel_first=True,
             )
         )
 
     if config.task == "masked-im":
+        input_name, input_config = input_defs.popitem(last=False)
+
         input_types.append(
             ct.TensorType(
-                name="bool_masked_pos",
-                shape=dummy_inputs["bool_masked_pos"].shape,
-                dtype=np.int32
+                name=input_name,
+                shape=dummy_inputs[input_name].shape,
+                dtype=np.int32,
             )
         )
 
@@ -228,7 +233,8 @@ def export_pytorch(
     # Create dummy input data for doing the JIT trace.
     dummy_inputs = config.generate_dummy_inputs(preprocessor)
 
-    example_input = [torch.tensor(x) for x in dummy_inputs.values()]
+    # Convert to Torch tensors and use inputs in order from the config.
+    example_input = [torch.tensor(dummy_inputs[name]) for name in list(config.inputs.keys())]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
@@ -277,21 +283,15 @@ def export_pytorch(
     else:
         first_output_shape = example_output.shape
 
-    if get_input_named(spec, "image"):
-        mlmodel.input_description["image"] = "Image input"
-
     if config.task == "image-classification":
         probs_output_name = spec.description.predictedProbabilitiesName
         ct.utils.rename_feature(spec, probs_output_name, "probabilities")
         spec.description.predictedProbabilitiesName = "probabilities"
 
-        mlmodel.input_description["image"] = "Image to be classified"
         mlmodel.output_description["probabilities"] = "Probability of each category"
         mlmodel.output_description["classLabel"] = "Category with the highest score"
 
     if config.task == "masked-im":
-        mlmodel.input_description["bool_masked_pos"] = "Indicates which patches are masked (1) and which aren't (0)"
-
         fix_output(
             mlmodel=mlmodel,
             output=spec.description.output[0],
@@ -317,6 +317,12 @@ def export_pytorch(
                 description="Output from the global pooling layer",
                 shape=example_output[1].shape,
             )
+
+    #TODO: no longer pass description to fix_output but get it from config.outputs
+
+    for input_name, input_config in config.inputs.items():
+        if "description" in input_config:
+            mlmodel.input_description[input_name] = input_config["description"]
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
