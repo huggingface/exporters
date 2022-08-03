@@ -105,10 +105,6 @@ class CoreMLConfig(ABC):
         """
         return cls(config, task=task)
 
-    # @property
-    # def inputs(self) -> OrderedDict[str, Any]:
-
-
 #     @property
 #     @abstractmethod
 #     def inputs(self) -> Mapping[str, Mapping[int, str]]:
