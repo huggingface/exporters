@@ -120,7 +120,9 @@ class CoreMLConfig(ABC):
         - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering
         - `"image_width"` and `"image_height"`: override the expected image size
         """
-        if self.task == "image-classification":
+        # TODO: the input for the default task depends on whether this is an image model or not
+
+        if self.task in ["image-classification", "default"]:
             return OrderedDict(
                 [
                     (
@@ -154,16 +156,18 @@ class CoreMLConfig(ABC):
 
         raise AssertionError("Unsupported task '{self.task}'")
 
-#     @property
-#     def outputs(self) -> Mapping[str, Mapping[int, str]]:
-#         """
-#         Mapping containing the axis definition of the output tensors to provide to the model
+    # @property
+    # def outputs(self) -> Mapping[str, Mapping[int, str]]:
+    #     """
+    #     Mapping containing the axis definition of the output tensors to provide to the model
 
-#         Returns:
-#             For each output: its name associated to the axes symbolic name and the axis position within the tensor
-#         """
-#         common_outputs = self._tasks_to_common_outputs[self.task]
-#         return copy.deepcopy(common_outputs)
+    #     Returns:
+    #         For each output: its name associated to the axes symbolic name and the axis position within the tensor
+    #     """
+
+
+        # common_outputs = self._tasks_to_common_outputs[self.task]
+        # return copy.deepcopy(common_outputs)
 
 #     @property
 #     def values_override(self) -> Optional[Mapping[str, Any]]:
@@ -244,7 +248,7 @@ class CoreMLConfig(ABC):
             pass
 
         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
-            if self.task in ["image-classification", "masked-im"]:
+            if self.task in ["default", "image-classification", "masked-im"]:
                 if isinstance(preprocessor.size, tuple):
                     image_width, image_height = preprocessor.size
                 else:

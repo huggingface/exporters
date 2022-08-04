@@ -132,7 +132,9 @@ def _get_input_types(
     input_defs = config.inputs
     input_types = []
 
-    if config.task in ["image-classification", "masked-im"]:
+    #TODO: input type for default task depends on the type of model!
+
+    if config.task in ["default", "image-classification", "masked-im"]:
         scale = 1.0 / (preprocessor.image_std[0] * 255.0)
         bias = [
             -preprocessor.image_mean[0] / preprocessor.image_std[0],
