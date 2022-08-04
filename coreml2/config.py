@@ -118,7 +118,6 @@ class CoreMLConfig(ABC):
         Image inputs can have the following options:
 
         - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering
-        - `"image_width"` and `"image_height"`: override the expected image size
         """
         # TODO: the input for the default task depends on whether this is an image model or not
 
@@ -156,15 +155,60 @@ class CoreMLConfig(ABC):
 
         raise AssertionError("Unsupported task '{self.task}'")
 
-    # @property
-    # def outputs(self) -> Mapping[str, Mapping[int, str]]:
-    #     """
-    #     Mapping containing the axis definition of the output tensors to provide to the model
+    @property
+    def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
+        """
+        Ordered mapping of the outputs in the model
+        """
+        # TODO: the output for the default task depends on whether this is an image model or not
 
-    #     Returns:
-    #         For each output: its name associated to the axes symbolic name and the axis position within the tensor
-    #     """
+        if self.task == "default":
+            return OrderedDict(
+                [
+                    (
+                        "last_hidden_state",
+                        {
+                            "description": "Hidden states from the last layer",
+                        }
+                    ),
+                    (
+                        "pooler_output",
+                        {
+                            "description": "Output from the global pooling layer",
+                        }
+                    ),
+                ]
+            )
 
+        if self.task == "image-classification":
+            return OrderedDict(
+                [
+                    (
+                        "probabilities",
+                        {
+                            "description": "Probability of each category",
+                        }
+                    ),
+                    (
+                        "classLabel",
+                        {
+                            "description": "Category with the highest score",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task == "masked-im":
+            return OrderedDict(
+                [
+                    (
+                        "logits",
+                        {
+                            "description": "Prediction scores (before softmax)",
+                        }
+                    ),
+                ]
+            )
 
         # common_outputs = self._tasks_to_common_outputs[self.task]
         # return copy.deepcopy(common_outputs)

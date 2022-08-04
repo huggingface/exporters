@@ -82,32 +82,32 @@ def get_labels_as_list(model):
     return labels
 
 
-def fix_output(
-    mlmodel: ct.models.MLModel,
-    output: ct.proto.Model_pb2.FeatureDescription,
-    name: str,
-    description: str,
-    shape: Optional[Tuple[int]] = None
-):
-    """
-    Rename model output and fill in its expected shape
+# def fix_output(
+#     mlmodel: ct.models.MLModel,
+#     output: ct.proto.Model_pb2.FeatureDescription,
+#     name: str,
+#     description: str,
+#     shape: Optional[Tuple[int]] = None
+# ):
+#     """
+#     Rename model output and fill in its expected shape
 
-    Args:
-        mlmodel (`ct.models.MLModel`):
-            The Core ML model object.
-        output (`ct.proto.Model_pb2.FeatureDescription`):
-            The output protobuf object from the Core ML model's spec.
-        name (`str`):
-            The new name for the model output.
-        description (`str`):
-            The new description for the model output.
-        shape (`tuple`, *optional*, default is `None`):
-            The expected shape for the output tensor.
-    """
-    ct.utils.rename_feature(mlmodel._spec, output.name, name)
-    mlmodel.output_description[name] = description
-    if shape is not None:
-        set_multiarray_shape(output, shape)
+#     Args:
+#         mlmodel (`ct.models.MLModel`):
+#             The Core ML model object.
+#         output (`ct.proto.Model_pb2.FeatureDescription`):
+#             The output protobuf object from the Core ML model's spec.
+#         name (`str`):
+#             The new name for the model output.
+#         description (`str`):
+#             The new description for the model output.
+#         shape (`tuple`, *optional*, default is `None`):
+#             The expected shape for the output tensor.
+#     """
+#     ct.utils.rename_feature(mlmodel._spec, output.name, name)
+#     mlmodel.output_description[name] = description
+#     if shape is not None:
+#         set_multiarray_shape(output, shape)
 
 
 def _get_input_types(
@@ -181,6 +181,8 @@ if is_torch_available():
             self.config = config
 
         def forward(self, inputs, extra_input1=None):
+            output_defs = self.config.outputs
+
             if self.config.task == "masked-im":
                 outputs = self.model(inputs, bool_masked_pos=extra_input1, return_dict=False)
             else:
@@ -192,8 +194,10 @@ if is_torch_available():
             if self.config.task == "masked-im":
                 return outputs[1]  # logits
 
+            # TODO: default task depends on type of model!
+
             if self.config.task == "default":
-                if hasattr(self.model, "pooler") and self.model.pooler is not None:
+                if hasattr(self.model, "pooler") and self.model.pooler is not None and len(output_defs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:
                     return outputs[0]  # last_hidden_state
@@ -251,7 +255,7 @@ def export_pytorch(
     if isinstance(example_output, (tuple, list)):
         example_output = [x.numpy() for x in example_output]
     else:
-        example_output = example_output.numpy()
+        example_output = [example_output.numpy()]
 
     convert_kwargs = { }
 
@@ -277,55 +281,33 @@ def export_pytorch(
 
     spec = mlmodel._spec
 
+    for input_name, input_config in config.inputs.items():
+        if "description" in input_config:
+            mlmodel.input_description[input_name] = input_config["description"]
+
     user_defined_metadata = {}
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
-    if isinstance(example_output, (tuple, list)):
-        first_output_shape = example_output[0].shape
-    else:
-        first_output_shape = example_output.shape
+    output_defs = config.outputs
 
     if config.task == "image-classification":
-        probs_output_name = spec.description.predictedProbabilitiesName
-        ct.utils.rename_feature(spec, probs_output_name, "probabilities")
-        spec.description.predictedProbabilitiesName = "probabilities"
+        output_name, output_config = output_defs.popitem(last=False)
+        ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_name)
+        spec.description.predictedProbabilitiesName = output_name
+        mlmodel.output_description[output_name] = output_config["description"]
 
-        mlmodel.output_description["probabilities"] = "Probability of each category"
-        mlmodel.output_description["classLabel"] = "Category with the highest score"
-
-    if config.task == "masked-im":
-        fix_output(
-            mlmodel=mlmodel,
-            output=spec.description.output[0],
-            name="logits",
-            description="Prediction scores (before softmax)",
-            shape=first_output_shape,
-        )
-
-    if config.task == "default":
-        fix_output(
-            mlmodel=mlmodel,
-            output=spec.description.output[0],
-            name="last_hidden_state",
-            description="Hidden states from the last layer",
-            shape=first_output_shape,
-        )
-
-        if hasattr(model, "pooler") and model.pooler is not None:
-            fix_output(
-                mlmodel=mlmodel,
-                output=spec.description.output[1],
-                name="pooler_output",
-                description="Output from the global pooling layer",
-                shape=example_output[1].shape,
-            )
-
-    #TODO: no longer pass description to fix_output but get it from config.outputs
-
-    for input_name, input_config in config.inputs.items():
-        if "description" in input_config:
-            mlmodel.input_description[input_name] = input_config["description"]
+        output_name, output_config = output_defs.popitem(last=False)
+        ct.utils.rename_feature(spec, spec.description.predictedFeatureName, output_name)
+        spec.description.predictedFeatureName = output_name
+        mlmodel.output_description[output_name] = output_config["description"]
+    else:
+        for i, (output_name, output_config) in enumerate(output_defs.items()):
+            if i < len(example_output):
+                output = spec.description.output[i]
+                ct.utils.rename_feature(spec, output.name, output_name)
+                mlmodel.output_description[output_name] = output_config["description"]
+                set_multiarray_shape(output, example_output[i].shape)
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
