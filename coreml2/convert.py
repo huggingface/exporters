@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Mapping, Any
 import coremltools as ct
 import numpy as np
 
-#TODO: if integrating this into transformers, replace imports with ..
 
+#TODO: if integrating this into transformers, replace imports with ..
 from transformers.utils import (
     is_torch_available,
     is_tf_available,
@@ -40,14 +40,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
-
-
-# def get_input_named(spec, name):
-#     """Return the input node with the given name in the Core ML model."""
-#     for out in spec.description.input:
-#         if out.name == name:
-#             return out
-#     return None
 
 
 def get_output_names(spec):
@@ -82,32 +74,16 @@ def get_labels_as_list(model):
     return labels
 
 
-# def fix_output(
-#     mlmodel: ct.models.MLModel,
-#     output: ct.proto.Model_pb2.FeatureDescription,
-#     name: str,
-#     description: str,
-#     shape: Optional[Tuple[int]] = None
-# ):
-#     """
-#     Rename model output and fill in its expected shape
+def _is_image_input(
+    preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
+    input_index: int = 0
+) -> bool:
+    from transformers.feature_extraction_utils import FeatureExtractionMixin
+    return isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[input_index] == "pixel_values"
 
-#     Args:
-#         mlmodel (`ct.models.MLModel`):
-#             The Core ML model object.
-#         output (`ct.proto.Model_pb2.FeatureDescription`):
-#             The output protobuf object from the Core ML model's spec.
-#         name (`str`):
-#             The new name for the model output.
-#         description (`str`):
-#             The new description for the model output.
-#         shape (`tuple`, *optional*, default is `None`):
-#             The expected shape for the output tensor.
-#     """
-#     ct.utils.rename_feature(mlmodel._spec, output.name, name)
-#     mlmodel.output_description[name] = description
-#     if shape is not None:
-#         set_multiarray_shape(output, shape)
+
+def _is_image_std_same(preprocessor: "FeatureExtractionMixin") -> bool:
+    return preprocessor.image_std[0] == preprocessor.image_std[1] == preprocessor.image_std[2]
 
 
 def _get_input_types(
@@ -135,12 +111,21 @@ def _get_input_types(
     #TODO: input type for default task depends on the type of model!
 
     if config.task in ["default", "image-classification", "masked-im"]:
-        scale = 1.0 / (preprocessor.image_std[0] * 255.0)
         bias = [
-            -preprocessor.image_mean[0] / preprocessor.image_std[0],
-            -preprocessor.image_mean[1] / preprocessor.image_std[1],
-            -preprocessor.image_mean[2] / preprocessor.image_std[2],
+            -preprocessor.image_mean[0],
+            -preprocessor.image_mean[1],
+            -preprocessor.image_mean[2],
         ]
+
+        # If the stddev values are all equal, they can be folded into bias and
+        # scale. If not, Wrapper will insert an additional division operation.
+        if _is_image_std_same(preprocessor):
+            bias[0] /= preprocessor.image_std[0]
+            bias[1] /= preprocessor.image_std[1]
+            bias[2] /= preprocessor.image_std[2]
+            scale = 1.0 / (preprocessor.image_std[0] * 255.0)
+        else:
+            scale = 1.0 / 255
 
         input_name, input_config = input_defs.popitem(last=False)
         color_layout = input_config.get("color_layout", "RGB")
@@ -182,6 +167,12 @@ if is_torch_available():
 
         def forward(self, inputs, extra_input1=None):
             output_defs = self.config.outputs
+
+            # Core ML's image preprocessing does not allow a different scaling
+            # factor for each color channel, so do this manually.
+            if _is_image_input(self.preprocessor) and not _is_image_std_same(self.preprocessor):
+                image_std = torch.tensor(self.preprocessor.image_std).reshape(1, -1, 1, 1)
+                inputs = inputs / image_std
 
             if self.config.task == "masked-im":
                 outputs = self.model(inputs, bool_masked_pos=extra_input1, return_dict=False)
@@ -258,7 +249,6 @@ def export_pytorch(
         example_output = [example_output.numpy()]
 
     convert_kwargs = { }
-
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
