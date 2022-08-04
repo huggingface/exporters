@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Mapping, Any
 
 import coremltools as ct
 import numpy as np
-
 
 #TODO: if integrating this into transformers, replace imports with ..
 from transformers.utils import (
@@ -74,6 +74,7 @@ def get_labels_as_list(model):
     return labels
 
 
+#TODO: put in CoreMLConfig? it also does this somewhere
 def _is_image_input(
     preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
     input_index: int = 0
@@ -110,7 +111,7 @@ def _get_input_types(
 
     #TODO: input type for default task depends on the type of model!
 
-    if config.task in ["default", "image-classification", "masked-im"]:
+    if config.task in ["default", "image-classification", "masked-im", "semantic-segmentation"]:
         bias = [
             -preprocessor.image_mean[0],
             -preprocessor.image_mean[1],
@@ -184,6 +185,16 @@ if is_torch_available():
 
             if self.config.task == "masked-im":
                 return outputs[1]  # logits
+
+            if self.config.task == "semantic-segmentation":
+                x = outputs[0]  # logits
+
+                _, output_config = output_defs.popitem(last=False)
+                if output_config.get("do_upsample", False):
+                    x = torch.nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
+                if output_config.get("do_argmax", False):
+                    x = x.argmax(1)
+                return x
 
             # TODO: default task depends on type of model!
 
@@ -298,6 +309,14 @@ def export_pytorch(
                 ct.utils.rename_feature(spec, output.name, output_name)
                 mlmodel.output_description[output_name] = output_config["description"]
                 set_multiarray_shape(output, example_output[i].shape)
+
+        if config.task == "semantic-segmentation":
+            labels = get_labels_as_list(model)
+            user_defined_metadata["classes"] = ",".join(labels)
+
+            # Make the model available in Xcode's previewer.
+            mlmodel.user_defined_metadata["com.apple.coreml.model.preview.type"] = "imageSegmenter"
+            mlmodel.user_defined_metadata["com.apple.coreml.model.preview.params"] = json.dumps({"labels": labels})
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)

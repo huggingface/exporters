@@ -117,11 +117,24 @@ class CoreMLConfig(ABC):
 
         Image inputs can have the following options:
 
-        - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering
+        - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering.
         """
         # TODO: the input for the default task depends on whether this is an image model or not
 
-        if self.task in ["image-classification", "default"]:
+        if self.task in ["default", "semantic-segmentation"]:
+            return OrderedDict(
+                [
+                    (
+                        "image",
+                        {
+                            "description": "Input image",
+                            "color_layout": "RGB",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task == "image-classification":
             return OrderedDict(
                 [
                     (
@@ -159,6 +172,16 @@ class CoreMLConfig(ABC):
     def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
         """
         Ordered mapping of the outputs in the model
+
+        Override this function to change the name of the outputs, their description strings,
+        or any of the additional configuration options.
+
+        Note: You are not allowed to change the order of the outputs!
+
+        Semantic segmentation outputs can have the following options:
+
+        - `do_upsample`: Scales the output to have the same width and height as the input.
+        - `do_argmax`: Whether to perform an argmax operation on the predicted logits.
         """
         # TODO: the output for the default task depends on whether this is an image model or not
 
@@ -210,6 +233,23 @@ class CoreMLConfig(ABC):
                 ]
             )
 
+        if self.task == "semantic-segmentation":
+            return OrderedDict(
+                [
+                    (
+                        "classLabels",
+                        {
+                            "description": "Segmentation map",
+                            "do_argmax": True,
+                            "do_upsample": True,
+                        }
+                    ),
+                ]
+            )
+
+        raise AssertionError("Unsupported task '{self.task}'")
+
+        #TODO: maybe do it like ONNX where we just copy the dictionary (don't need the assert then):
         # common_outputs = self._tasks_to_common_outputs[self.task]
         # return copy.deepcopy(common_outputs)
 
@@ -292,14 +332,13 @@ class CoreMLConfig(ABC):
             pass
 
         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
-            if self.task in ["default", "image-classification", "masked-im"]:
-                if isinstance(preprocessor.size, tuple):
-                    image_width, image_height = preprocessor.size
-                else:
-                    image_width = image_height = preprocessor.size
+            if isinstance(preprocessor.size, tuple):
+                image_width, image_height = preprocessor.size
+            else:
+                image_width = image_height = preprocessor.size
 
-                pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
-                dummy_inputs[input_names.pop(0)] = pixel_values
+            pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
+            dummy_inputs[input_names.pop(0)] = pixel_values
 
             if self.task == "masked-im":
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
