@@ -121,7 +121,7 @@ class CoreMLConfig(ABC):
         """
         # TODO: the input for the default task depends on whether this is an image model or not
 
-        if self.task in ["default", "semantic-segmentation"]:
+        if self.task in ["default", "object-detection", "semantic-segmentation"]:
             return OrderedDict(
                 [
                     (
@@ -191,13 +191,13 @@ class CoreMLConfig(ABC):
                     (
                         "last_hidden_state",
                         {
-                            "description": "Hidden states from the last layer",
+                            "description": "Sequence of hidden-states at the output of the last layer of the model",
                         }
                     ),
                     (
                         "pooler_output",
                         {
-                            "description": "Output from the global pooling layer",
+                            "description": "Last layer hidden-state after a pooling operation on the spatial dimensions",
                         }
                     ),
                 ]
@@ -228,6 +228,24 @@ class CoreMLConfig(ABC):
                         "logits",
                         {
                             "description": "Prediction scores (before softmax)",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task == "object-detection":
+            return OrderedDict(
+                [
+                    (
+                        "logits",
+                        {
+                            "description": "Classification logits (including no-object) for all queries",
+                        }
+                    ),
+                    (
+                        "pred_boxes",
+                        {
+                            "description": "Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height)",
                         }
                     ),
                 ]
@@ -332,10 +350,15 @@ class CoreMLConfig(ABC):
             pass
 
         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
-            if isinstance(preprocessor.size, tuple):
-                image_width, image_height = preprocessor.size
+            if hasattr(preprocessor, "crop_size"):
+                image_size = preprocessor.crop_size
             else:
-                image_width = image_height = preprocessor.size
+                image_size = preprocessor.size
+
+            if isinstance(image_size, tuple):
+                image_width, image_height = image_size
+            else:
+                image_width = image_height = image_size
 
             pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
             dummy_inputs[input_names.pop(0)] = pixel_values
@@ -352,20 +375,12 @@ class CoreMLConfig(ABC):
 
         return dummy_inputs
 
-#     @classmethod
-#     def flatten_output_collection_property(cls, name: str, field: Iterable[Any]) -> Dict[str, Any]:
-#         """
-#         Flatten any potential nested structure expanding the name of the field with the index of the element within the
-#         structure.
+    def patch_pytorch_ops(self) -> Mapping[str, Callable]:
+        """
+        Override this to provide implementation for PyTorch ops that the Core ML
+        converter does not support.
 
-#         Args:
-#             name: The name of the nested structure
-#             field: The structure to, potentially, be flattened
-
-#         Returns:
-#             (Dict[str, Any]): Outputs with flattened structure and key mapping this new structure.
-
-#         """
-#         from itertools import chain
-
-#         return {f"{name}.{idx}": item for idx, item in enumerate(chain.from_iterable(field))}
+        Returns:
+            `Mapping[str, Callable]` of op names to PyTorch conversion functions.
+        """
+        return {}

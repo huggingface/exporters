@@ -16,6 +16,9 @@ import json
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Mapping, Any
 
 import coremltools as ct
+from coremltools.converters.mil import register_torch_op
+from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_OPS_REGISTRY
+
 import numpy as np
 
 #TODO: if integrating this into transformers, replace imports with ..
@@ -111,16 +114,21 @@ def _get_input_types(
 
     #TODO: input type for default task depends on the type of model!
 
-    if config.task in ["default", "image-classification", "masked-im", "semantic-segmentation"]:
-        bias = [
-            -preprocessor.image_mean[0],
-            -preprocessor.image_mean[1],
-            -preprocessor.image_mean[2],
-        ]
+    if config.task in [
+        "default", "image-classification", "masked-im", "object-detection", "semantic-segmentation"
+    ]:
+        if hasattr(preprocessor, "image_mean"):
+            bias = [
+                -preprocessor.image_mean[0],
+                -preprocessor.image_mean[1],
+                -preprocessor.image_mean[2],
+            ]
+        else:
+            bias = [ 0.0, 0.0, 0.0 ]
 
         # If the stddev values are all equal, they can be folded into bias and
         # scale. If not, Wrapper will insert an additional division operation.
-        if _is_image_std_same(preprocessor):
+        if hasattr(preprocessor, "image_std") and _is_image_std_same(preprocessor):
             bias[0] /= preprocessor.image_std[0]
             bias[1] /= preprocessor.image_std[1]
             bias[2] /= preprocessor.image_std[2]
@@ -171,7 +179,7 @@ if is_torch_available():
 
             # Core ML's image preprocessing does not allow a different scaling
             # factor for each color channel, so do this manually.
-            if _is_image_input(self.preprocessor) and not _is_image_std_same(self.preprocessor):
+            if hasattr(self.preprocessor, "image_std") and not _is_image_std_same(self.preprocessor):
                 image_std = torch.tensor(self.preprocessor.image_std).reshape(1, -1, 1, 1)
                 inputs = inputs / image_std
 
@@ -184,7 +192,12 @@ if is_torch_available():
                 return torch.nn.functional.softmax(outputs[0], dim=1)  # logits
 
             if self.config.task == "masked-im":
-                return outputs[1]  # logits
+                # Some models also return loss even if no labels provided (e.g. ViT)
+                # so need to skip that if it's present.
+                return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
+
+            if self.config.task == "object-detection":
+                return outputs[0], outputs[1]   # logits, pred_boxes
 
             if self.config.task == "semantic-segmentation":
                 x = outputs[0]  # logits
@@ -199,7 +212,7 @@ if is_torch_available():
             # TODO: default task depends on type of model!
 
             if self.config.task == "default":
-                if hasattr(self.model, "pooler") and self.model.pooler is not None and len(output_defs) > 1:
+                if len(output_defs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:
                     return outputs[0]  # last_hidden_state
@@ -248,6 +261,13 @@ def export_pytorch(
     example_input = [torch.tensor(dummy_inputs[name]) for name in list(config.inputs.keys())]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
+
+    # Running the model once with gradients disabled prevents an error during JIT tracing
+    # that happens with certain models such as LeViT. The error message is: "Cannot insert
+    # a Tensor that requires grad as a constant."
+    with torch.no_grad():
+        dummy_output = wrapper(*example_input)
+
     traced_model = torch.jit.trace(wrapper, example_input, strict=True)
 
     # Run the traced PyTorch model to get the shapes of the output tensors.
@@ -272,6 +292,16 @@ def export_pytorch(
 
     input_tensors = _get_input_types(preprocessor, config, dummy_inputs)
 
+    patched_ops = config.patch_pytorch_ops()
+    restore_ops = {}
+    if patched_ops is not None:
+        for name, func in patched_ops.items():
+            logger.info(f"Patching PyTorch conversion '{name}' with {func}")
+            if name in _TORCH_OPS_REGISTRY:
+                restore_ops[name] = _TORCH_OPS_REGISTRY[name]
+                del _TORCH_OPS_REGISTRY[name]
+            _TORCH_OPS_REGISTRY[name] = func
+
     mlmodel = ct.convert(
         traced_model,
         inputs=input_tensors,
@@ -279,6 +309,12 @@ def export_pytorch(
         compute_units=compute_units,
         **convert_kwargs,
     )
+
+    if restore_ops is not None:
+        for name, func in restore_ops.items():
+            if func is not None:
+                logger.info(f"Restoring PyTorch conversion op '{name}' to {func}")
+                _TORCH_OPS_REGISTRY[name] = func
 
     spec = mlmodel._spec
 
@@ -310,10 +346,11 @@ def export_pytorch(
                 mlmodel.output_description[output_name] = output_config["description"]
                 set_multiarray_shape(output, example_output[i].shape)
 
-        if config.task == "semantic-segmentation":
+        if config.task in ["object-detection", "semantic-segmentation"]:
             labels = get_labels_as_list(model)
             user_defined_metadata["classes"] = ",".join(labels)
 
+        if config.task == "semantic-segmentation":
             # Make the model available in Xcode's previewer.
             mlmodel.user_defined_metadata["com.apple.coreml.model.preview.type"] = "imageSegmenter"
             mlmodel.user_defined_metadata["com.apple.coreml.model.preview.params"] = json.dumps({"labels": labels})
