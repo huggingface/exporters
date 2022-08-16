@@ -24,6 +24,10 @@ class BeitCoreMLConfig(CoreMLConfig):
     pass
 
 
+class BertCoreMLConfig(CoreMLConfig):
+    pass
+
+
 class ConvNextCoreMLConfig(CoreMLConfig):
     pass
 
@@ -71,6 +75,35 @@ class CvTCoreMLConfig(CoreMLConfig):
         return { "einsum": einsum }
 
 
+class DistilBertCoreMLConfig(BertCoreMLConfig):
+    @property
+    def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
+        if self.task == "multiple-choice":
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        {
+                            "description": "Indices of input sequence tokens in the vocabulary",
+                            "sequence_length": 128,
+                        }
+                    ),
+                    (
+                        "attention_mask",
+                        {
+                            "description": "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        }
+                    ),
+                ]
+            )
+        else:
+            return super().inputs
+
+
+class GPT2CoreMLConfig(CoreMLConfig):
+    pass
+
+
 class LeViTCoreMLConfig(CoreMLConfig):
     def patch_pytorch_ops(self):
         def reshape_as(context, node):
@@ -83,6 +116,10 @@ class LeViTCoreMLConfig(CoreMLConfig):
         return { "reshape_as": reshape_as }
 
 
+class MobileBertCoreMLConfig(CoreMLConfig):
+    pass
+
+
 class MobileViTCoreMLConfig(CoreMLConfig):
     @property
     def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
@@ -92,6 +129,10 @@ class MobileViTCoreMLConfig(CoreMLConfig):
 
 
 class SegformerCoreMLConfig(CoreMLConfig):
+    pass
+
+
+class SqueezeBertCoreMLConfig(CoreMLConfig):
     pass
 
 

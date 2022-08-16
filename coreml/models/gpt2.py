@@ -53,7 +53,7 @@ class Wrapper(torch.nn.Module):
             #return nn.functional.softmax(outputs[0], dim=2)
             return outputs[0]  # logits
 
-        if is_any_inisinstancestance(self.model, (
+        if isinstance(self.model, (
             GPT2ForSequenceClassification,
             GPT2ForTokenClassification,
         )):

@@ -114,8 +114,49 @@ def _get_input_types(
 
     #TODO: input type for default task depends on the type of model!
 
+    # TODO: just check for "is this an NLP model"?
     if config.task in [
-        "default", "image-classification", "masked-im", "object-detection", "semantic-segmentation"
+        "defaultX",
+        "masked-lm",
+        "multiple-choice",
+        "next-sentence-prediction",
+        "question-answering",
+        "sequence-classification",
+        "token-classification",
+    ]:
+        # input_ids
+        input_name, input_config = input_defs.popitem(last=False)
+        input_types.append(
+            ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+        )
+
+        # attention_mask
+        if len(input_defs) > 0:
+            input_name, input_config = input_defs.popitem(last=False)
+            input_types.append(
+                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+            )
+        else:
+            logger.info("Skipping attention_mask input")
+
+        # token_type_ids
+        if len(input_defs) > 0:
+            input_name, input_config = input_defs.popitem(last=False)
+            input_types.append(
+                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+            )
+        else:
+            logger.info("Skipping token_type_ids input")
+
+        # TODO: could do the above in a loop!
+
+    # TODO: just check for "is this an image model"?
+    if config.task in [
+        "default",
+        "image-classification",
+        "masked-im",
+        "object-detection",
+        "semantic-segmentation",
     ]:
         if hasattr(preprocessor, "image_mean"):
             bias = [
@@ -139,6 +180,7 @@ def _get_input_types(
         input_name, input_config = input_defs.popitem(last=False)
         color_layout = input_config.get("color_layout", "RGB")
 
+        # image
         input_types.append(
             ct.ImageType(
                 name=input_name,
@@ -150,16 +192,12 @@ def _get_input_types(
             )
         )
 
-    if config.task == "masked-im":
-        input_name, input_config = input_defs.popitem(last=False)
-
-        input_types.append(
-            ct.TensorType(
-                name=input_name,
-                shape=dummy_inputs[input_name].shape,
-                dtype=np.int32,
+        if config.task == "masked-im":
+            # bool_masked_pos
+            input_name, input_config = input_defs.popitem(last=False)
+            input_types.append(
+                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
             )
-        )
 
     return input_types
 
@@ -174,7 +212,7 @@ if is_torch_available():
             self.model = model.eval()
             self.config = config
 
-        def forward(self, inputs, extra_input1=None):
+        def forward(self, inputs, extra_input1=None, extra_input2=None):
             output_defs = self.config.outputs
 
             # Core ML's image preprocessing does not allow a different scaling
@@ -183,10 +221,23 @@ if is_torch_available():
                 image_std = torch.tensor(self.preprocessor.image_std).reshape(1, -1, 1, 1)
                 inputs = inputs / image_std
 
+            # TODO: if this is a text model, and we have an extra input, then pass attention_mask
+            # (not the hacky way I did it below)
+
+            model_kwargs = {
+                #"output_attentions": False,
+                #"output_hidden_states": False,
+                "return_dict": False,
+            }
+
             if self.config.task == "masked-im":
-                outputs = self.model(inputs, bool_masked_pos=extra_input1, return_dict=False)
+                outputs = self.model(inputs, bool_masked_pos=extra_input1, **model_kwargs)
+            elif extra_input2 is not None:
+                outputs = self.model(inputs, attention_mask=extra_input1, token_type_ids=extra_input2, **model_kwargs)
+            elif extra_input1 is not None:
+                outputs = self.model(inputs, attention_mask=extra_input1, **model_kwargs)
             else:
-                outputs = self.model(inputs, return_dict=False)
+                outputs = self.model(inputs, **model_kwargs)
 
             if self.config.task == "image-classification":
                 return torch.nn.functional.softmax(outputs[0], dim=1)  # logits
@@ -196,8 +247,22 @@ if is_torch_available():
                 # so need to skip that if it's present.
                 return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
 
+            if self.config.task in [
+                "masked-lm",
+                "multiple-choice",
+                "next-sentence-prediction",
+                "sequence-classification",
+                "token-classification"
+            ]:
+                return torch.nn.functional.softmax(outputs[0], dim=-1)  # logits
+
             if self.config.task == "object-detection":
-                return outputs[0], outputs[1]   # logits, pred_boxes
+                return outputs[0], outputs[1]  # logits, pred_boxes
+
+            if self.config.task == "question-answering":
+                start_scores = torch.nn.functional.softmax(outputs[0], dim=-1)  # start_logits
+                end_scores   = torch.nn.functional.softmax(outputs[1], dim=-1)  # end_logits
+                return start_scores, end_scores
 
             if self.config.task == "semantic-segmentation":
                 x = outputs[0]  # logits
@@ -211,7 +276,7 @@ if is_torch_available():
 
             # TODO: default task depends on type of model!
 
-            if self.config.task == "default":
+            if self.config.task in ["default", "defaultX"]:
                 if len(output_defs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:
@@ -254,6 +319,13 @@ def export_pytorch(
 
     logger.info(f"Using framework PyTorch: {torch.__version__}")
 
+    # Check if we need to override certain configuration items
+    if config.values_override is not None:
+        logger.info(f"Overriding {len(config.values_override)} configuration item(s)")
+        for override_config_key, override_config_value in config.values_override.items():
+            logger.info(f"\t- {override_config_key} -> {override_config_value}")
+            setattr(model.config, override_config_key, override_config_value)
+
     # Create dummy input data for doing the JIT trace.
     dummy_inputs = config.generate_dummy_inputs(preprocessor)
 
@@ -285,8 +357,14 @@ def export_pytorch(
 
     # For classification models, add the labels into the Core ML model and
     # designate it as the special `classifier` model type.
-    if config.task == "image-classification":
+    if config.task in ["image-classification", "multiple-choice", "sequence-classification"]:
         class_labels = [model.config.id2label[x] for x in range(model.config.num_labels)]
+    elif config.task == "next-sentence-prediction":
+        class_labels = ["true", "false"]
+    else:
+        class_labels = None
+
+    if class_labels is not None:
         classifier_config = ct.ClassifierConfig(class_labels)
         convert_kwargs['classifier_config'] = classifier_config
 
@@ -328,7 +406,12 @@ def export_pytorch(
 
     output_defs = config.outputs
 
-    if config.task == "image-classification":
+    if config.task in [
+        "image-classification",
+        "multiple-choice",
+        "next-sentence-prediction",
+        "sequence-classification"
+    ]:
         output_name, output_config = output_defs.popitem(last=False)
         ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_name)
         spec.description.predictedProbabilitiesName = output_name
@@ -346,7 +429,7 @@ def export_pytorch(
                 mlmodel.output_description[output_name] = output_config["description"]
                 set_multiarray_shape(output, example_output[i].shape)
 
-        if config.task in ["object-detection", "semantic-segmentation"]:
+        if config.task in ["object-detection", "semantic-segmentation", "token-classification"]:
             labels = get_labels_as_list(model)
             user_defined_metadata["classes"] = ",".join(labels)
 

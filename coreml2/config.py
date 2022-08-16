@@ -121,6 +121,59 @@ class CoreMLConfig(ABC):
         """
         # TODO: the input for the default task depends on whether this is an image model or not
 
+        if self.task in [
+            "defaultX",
+            "masked-lm",
+            "question-answering",
+            "sequence-classification",
+            "token-classification",
+        ]:
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        {
+                            "description": "Indices of input sequence tokens in the vocabulary",
+                            "sequence_length": 128,
+                        }
+                    ),
+                    (
+                        "attention_mask",
+                        {
+                            "description": "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task in [
+            "multiple-choice",
+            "next-sentence-prediction",
+        ]:
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        {
+                            "description": "Indices of input sequence tokens in the vocabulary",
+                            "sequence_length": 128,
+                        }
+                    ),
+                    (
+                        "attention_mask",
+                        {
+                            "description": "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        }
+                    ),
+                    (
+                        "token_type_ids",
+                        {
+                            "description": "Segment token indices to indicate first and second portions of the inputs (0 = sentence A, 1 = sentence B)",
+                        }
+                    ),
+                ]
+            )
+
         if self.task in ["default", "object-detection", "semantic-segmentation"]:
             return OrderedDict(
                 [
@@ -185,6 +238,24 @@ class CoreMLConfig(ABC):
         """
         # TODO: the output for the default task depends on whether this is an image model or not
 
+        if self.task == "defaultX":
+            return OrderedDict(
+                [
+                    (
+                        "last_hidden_state",
+                        {
+                            "description": "Sequence of hidden-states at the output of the last layer of the model",
+                        }
+                    ),
+                    (
+                        "pooler_output",
+                        {
+                            "description": "Last layer hidden-state of the first token of the sequence",
+                        }
+                    ),
+                ]
+            )
+
         if self.task == "default":
             return OrderedDict(
                 [
@@ -203,7 +274,12 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        if self.task == "image-classification":
+        if self.task in [
+            "image-classification",
+            "multiple-choice",
+            "next-sentence-prediction",
+            "sequence-classification",
+        ]:
             return OrderedDict(
                 [
                     (
@@ -233,6 +309,18 @@ class CoreMLConfig(ABC):
                 ]
             )
 
+        if self.task in ["masked-lm", "token-classification"]:
+            return OrderedDict(
+                [
+                    (
+                        "token_scores",
+                        {
+                            "description": "Prediction scores for each vocabulary token (after softmax)",
+                        }
+                    ),
+                ]
+            )
+
         if self.task == "object-detection":
             return OrderedDict(
                 [
@@ -246,6 +334,24 @@ class CoreMLConfig(ABC):
                         "pred_boxes",
                         {
                             "description": "Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height)",
+                        }
+                    ),
+                ]
+            )
+
+        if self.task == "question-answering":
+            return OrderedDict(
+                [
+                    (
+                        "start_scores",
+                        {
+                            "description": "Span-start scores (after softmax)",
+                        }
+                    ),
+                    (
+                        "end_scores",
+                        {
+                            "description": "Span-end scores (after softmax)",
                         }
                     ),
                 ]
@@ -271,18 +377,18 @@ class CoreMLConfig(ABC):
         # common_outputs = self._tasks_to_common_outputs[self.task]
         # return copy.deepcopy(common_outputs)
 
-#     @property
-#     def values_override(self) -> Optional[Mapping[str, Any]]:
-#         """
-#         Dictionary of keys to override in the model's config before exporting
+    @property
+    def values_override(self) -> Optional[Mapping[str, Any]]:
+        """
+        Dictionary of keys to override in the model's config before exporting
 
-#         Returns:
-#             Dictionary with the keys (and their corresponding values) to override
-#         """
-#         if hasattr(self._config, "use_cache"):
-#             return {"use_cache": False}
+        Returns:
+            Dictionary with the keys (and their corresponding values) to override
+        """
+        if hasattr(self._config, "use_cache"):
+            return {"use_cache": False}
 
-#         return None
+        return None
 
 #     @property
 #     def default_batch_size(self) -> int:
@@ -342,12 +448,32 @@ class CoreMLConfig(ABC):
         from transformers.feature_extraction_utils import FeatureExtractionMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-        input_names = list(self.inputs.keys())
+        input_defs = self.inputs
         dummy_inputs = {}
 
         if isinstance(preprocessor, PreTrainedTokenizerBase):
-            # TODO: implement for text-based models
-            pass
+            input_name, input_config = input_defs.popitem(last=False)
+            sequence_length = input_config.get("sequence_length", 128)
+
+            if self.task == "multiple-choice":
+                shape = (1, self._config.num_labels, sequence_length)
+            else:
+                shape = (1, sequence_length)
+
+            input_ids = np.random.randint(0, preprocessor.vocab_size, shape)
+            dummy_inputs[input_name] = input_ids
+
+            # attention_mask
+            if len(input_defs) > 0:
+                input_name, input_config = input_defs.popitem(last=False)
+                attention_mask = np.ones(shape, dtype=np.int64)
+                dummy_inputs[input_name] = attention_mask
+
+            # token_type_ids
+            if len(input_defs) > 0:
+                input_name, input_config = input_defs.popitem(last=False)
+                token_type_ids = np.zeros(shape, dtype=np.int64)
+                dummy_inputs[input_name] = token_type_ids
 
         elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
             if hasattr(preprocessor, "crop_size"):
@@ -361,12 +487,16 @@ class CoreMLConfig(ABC):
                 image_width = image_height = image_size
 
             pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
-            dummy_inputs[input_names.pop(0)] = pixel_values
 
+            input_name, input_config = input_defs.popitem(last=False)
+            dummy_inputs[input_name] = pixel_values
+
+            # bool_masked_pos
             if self.task == "masked-im":
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
                 bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
-                dummy_inputs[input_names.pop(0)] = bool_masked_pos
+                input_name, input_config = input_defs.popitem(last=False)
+                dummy_inputs[input_name] = bool_masked_pos
 
         else:
             raise ValueError(
