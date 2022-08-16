@@ -77,15 +77,6 @@ def get_labels_as_list(model):
     return labels
 
 
-#TODO: put in CoreMLConfig? it also does this somewhere
-def _is_image_input(
-    preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
-    input_index: int = 0
-) -> bool:
-    from transformers.feature_extraction_utils import FeatureExtractionMixin
-    return isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[input_index] == "pixel_values"
-
-
 def _is_image_std_same(preprocessor: "FeatureExtractionMixin") -> bool:
     return preprocessor.image_std[0] == preprocessor.image_std[1] == preprocessor.image_std[2]
 
@@ -112,18 +103,7 @@ def _get_input_types(
     input_defs = config.inputs
     input_types = []
 
-    #TODO: input type for default task depends on the type of model!
-
-    # TODO: just check for "is this an NLP model"?
-    if config.task in [
-        "defaultX",
-        "masked-lm",
-        "multiple-choice",
-        "next-sentence-prediction",
-        "question-answering",
-        "sequence-classification",
-        "token-classification",
-    ]:
+    if config.modality == "text":
         # input_ids
         input_name, input_config = input_defs.popitem(last=False)
         input_types.append(
@@ -148,16 +128,9 @@ def _get_input_types(
         else:
             logger.info("Skipping token_type_ids input")
 
-        # TODO: could do the above in a loop!
+        # TODO: could do the above in a loop! (first fix input/output definitions structure)
 
-    # TODO: just check for "is this an image model"?
-    if config.task in [
-        "default",
-        "image-classification",
-        "masked-im",
-        "object-detection",
-        "semantic-segmentation",
-    ]:
+    if config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
             bias = [
                 -preprocessor.image_mean[0],
@@ -221,23 +194,22 @@ if is_torch_available():
                 image_std = torch.tensor(self.preprocessor.image_std).reshape(1, -1, 1, 1)
                 inputs = inputs / image_std
 
-            # TODO: if this is a text model, and we have an extra input, then pass attention_mask
-            # (not the hacky way I did it below)
-
             model_kwargs = {
                 #"output_attentions": False,
                 #"output_hidden_states": False,
                 "return_dict": False,
             }
 
-            if self.config.task == "masked-im":
-                outputs = self.model(inputs, bool_masked_pos=extra_input1, **model_kwargs)
-            elif extra_input2 is not None:
-                outputs = self.model(inputs, attention_mask=extra_input1, token_type_ids=extra_input2, **model_kwargs)
-            elif extra_input1 is not None:
-                outputs = self.model(inputs, attention_mask=extra_input1, **model_kwargs)
-            else:
-                outputs = self.model(inputs, **model_kwargs)
+            if self.config.modality == "text":
+                if extra_input2 is not None:
+                    model_kwargs["token_type_ids"] = extra_input2
+                if extra_input1 is not None:
+                    model_kwargs["attention_mask"] = extra_input1
+            elif self.config.modality == "vision":
+                if self.config.task == "masked-im":
+                    model_kwargs["bool_masked_pos"] = extra_input1
+
+            outputs = self.model(inputs, **model_kwargs)
 
             if self.config.task == "image-classification":
                 return torch.nn.functional.softmax(outputs[0], dim=1)  # logits
@@ -274,9 +246,7 @@ if is_torch_available():
                     x = x.argmax(1)
                 return x
 
-            # TODO: default task depends on type of model!
-
-            if self.config.task in ["default", "defaultX"]:
+            if self.config.task == "default":
                 if len(output_defs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:

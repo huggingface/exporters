@@ -83,7 +83,7 @@ class CoreMLConfig(ABC):
 #         "token-classification": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
 #     }
 
-    def __init__(self, config: "PretrainedConfig", task: str = "default"):
+    def __init__(self, config: "PretrainedConfig", task: str, modality: str):
         self._config = config
 
         # if task not in self._tasks_to_common_outputs:
@@ -91,19 +91,7 @@ class CoreMLConfig(ABC):
         #         f"{task} is not a supported task, supported tasks: {self._tasks_to_common_outputs.keys()}"
         #     )
         self.task = task
-
-    @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfig":
-        """
-        Instantiate a CoreMLConfig for a specific model
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML
-
-        Returns:
-            CoreMLConfig for this model
-        """
-        return cls(config, task=task)
+        self.modality = modality
 
     @property
     def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
@@ -119,10 +107,8 @@ class CoreMLConfig(ABC):
 
         - `"color_layout"`: `"RGB"` or `"BGR"` channel ordering.
         """
-        # TODO: the input for the default task depends on whether this is an image model or not
-
-        if self.task in [
-            "defaultX",
+        if self.modality == "text" and self.task in [
+            "default",
             "masked-lm",
             "question-answering",
             "sequence-classification",
@@ -174,7 +160,11 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        if self.task in ["default", "object-detection", "semantic-segmentation"]:
+        if self.modality == "vision" and self.task in [
+            "default",
+            "object-detection",
+            "semantic-segmentation"
+        ]:
             return OrderedDict(
                 [
                     (
@@ -219,7 +209,7 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}'")
+        raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
 
     @property
     def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
@@ -238,7 +228,7 @@ class CoreMLConfig(ABC):
         """
         # TODO: the output for the default task depends on whether this is an image model or not
 
-        if self.task == "defaultX":
+        if self.modality == "text" and self.task == "default":
             return OrderedDict(
                 [
                     (
@@ -256,7 +246,7 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        if self.task == "default":
+        if self.modality == "vision" and self.task == "default":
             return OrderedDict(
                 [
                     (
@@ -371,7 +361,7 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}'")
+        raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
 
         #TODO: maybe do it like ONNX where we just copy the dictionary (don't need the assert then):
         # common_outputs = self._tasks_to_common_outputs[self.task]
@@ -451,7 +441,7 @@ class CoreMLConfig(ABC):
         input_defs = self.inputs
         dummy_inputs = {}
 
-        if isinstance(preprocessor, PreTrainedTokenizerBase):
+        if self.modality == "text" and isinstance(preprocessor, PreTrainedTokenizerBase):
             input_name, input_config = input_defs.popitem(last=False)
             sequence_length = input_config.get("sequence_length", 128)
 
@@ -475,7 +465,7 @@ class CoreMLConfig(ABC):
                 token_type_ids = np.zeros(shape, dtype=np.int64)
                 dummy_inputs[input_name] = token_type_ids
 
-        elif isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
+        elif self.modality == "vision" and isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
             if hasattr(preprocessor, "crop_size"):
                 image_size = preprocessor.crop_size
             else:
@@ -514,3 +504,49 @@ class CoreMLConfig(ABC):
             `Mapping[str, Callable]` of op names to PyTorch conversion functions.
         """
         return {}
+
+
+class CoreMLTextConfig(CoreMLConfig):
+    """
+    Base class for Core ML exportable model using the "text" modality, describing metadata on how to
+    export the model through the Core ML format.
+    """
+    def __init__(self, config: "PretrainedConfig", task: str = "default"):
+        super().__init__(config, task=task, modality="text")
+
+    @classmethod
+    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLTextConfig":
+        """
+        Instantiate a CoreMLConfig for a specific model
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML
+            task: TODO
+
+        Returns:
+            CoreMLTextConfig for this model
+        """
+        return cls(config, task=task)
+
+
+class CoreMLVisionConfig(CoreMLConfig):
+    """
+    Base class for Core ML exportable model using the "vision" modality, describing metadata on how to
+    export the model through the Core ML format.
+    """
+    def __init__(self, config: "PretrainedConfig", task: str = "default"):
+        super().__init__(config, task=task, modality="vision")
+
+    @classmethod
+    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLVisionConfig":
+        """
+        Instantiate a CoreMLConfig for a specific model
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML
+            task: TODO
+
+        Returns:
+            CoreMLVisionConfig for this model
+        """
+        return cls(config, task=task)

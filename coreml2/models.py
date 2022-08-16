@@ -17,22 +17,22 @@ from typing import Any, Mapping
 
 from coremltools.converters.mil import Builder as mb
 
-from .config import CoreMLConfig
+from .config import CoreMLTextConfig, CoreMLVisionConfig
 
 
-class BeitCoreMLConfig(CoreMLConfig):
+class BeitCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
-class BertCoreMLConfig(CoreMLConfig):
+class BertCoreMLConfig(CoreMLTextConfig):
     pass
 
 
-class ConvNextCoreMLConfig(CoreMLConfig):
+class ConvNextCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
-class CvTCoreMLConfig(CoreMLConfig):
+class CvTCoreMLConfig(CoreMLVisionConfig):
     @property
     def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
         if self.task == "default":
@@ -100,11 +100,11 @@ class DistilBertCoreMLConfig(BertCoreMLConfig):
             return super().inputs
 
 
-class GPT2CoreMLConfig(CoreMLConfig):
+class GPT2CoreMLConfig(CoreMLTextConfig):
     pass
 
 
-class LeViTCoreMLConfig(CoreMLConfig):
+class LeViTCoreMLConfig(CoreMLVisionConfig):
     def patch_pytorch_ops(self):
         def reshape_as(context, node):
             a = context[node.inputs[0]]
@@ -116,11 +116,11 @@ class LeViTCoreMLConfig(CoreMLConfig):
         return { "reshape_as": reshape_as }
 
 
-class MobileBertCoreMLConfig(CoreMLConfig):
+class MobileBertCoreMLConfig(CoreMLTextConfig):
     pass
 
 
-class MobileViTCoreMLConfig(CoreMLConfig):
+class MobileViTCoreMLConfig(CoreMLVisionConfig):
     @property
     def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
         input_defs = super().inputs
@@ -128,19 +128,19 @@ class MobileViTCoreMLConfig(CoreMLConfig):
         return input_defs
 
 
-class SegformerCoreMLConfig(CoreMLConfig):
+class SegformerCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
-class SqueezeBertCoreMLConfig(CoreMLConfig):
+class SqueezeBertCoreMLConfig(CoreMLTextConfig):
     pass
 
 
-class ViTCoreMLConfig(CoreMLConfig):
+class ViTCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
-class YolosCoreMLConfig(CoreMLConfig):
+class YolosCoreMLConfig(CoreMLVisionConfig):
     def patch_pytorch_ops(self):
         # There is no bicubic upsampling in Core ML, so we'll have to use bilinear.
         # Still seems to work well enough. Note: the bilinear resize is applied to
