@@ -100,30 +100,30 @@ def _get_input_types(
     Returns:
         `List[Union[ct.ImageType, ct.TensorType]]`: ordered list of input types
     """
-    input_defs = config.inputs
+    input_descs = config.inputs
     input_types = []
 
     if config.modality == "text":
         # input_ids
-        input_name, input_config = input_defs.popitem(last=False)
+        input_desc = input_descs.pop(0)
         input_types.append(
-            ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+            ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
         )
 
         # attention_mask
-        if len(input_defs) > 0:
-            input_name, input_config = input_defs.popitem(last=False)
+        if len(input_descs) > 0:
+            input_desc = input_descs.pop(0)
             input_types.append(
-                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
 
         # token_type_ids
-        if len(input_defs) > 0:
-            input_name, input_config = input_defs.popitem(last=False)
+        if len(input_descs) > 0:
+            input_desc = input_descs.pop(0)
             input_types.append(
-                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping token_type_ids input")
@@ -150,26 +150,28 @@ def _get_input_types(
         else:
             scale = 1.0 / 255
 
-        input_name, input_config = input_defs.popitem(last=False)
-        color_layout = input_config.get("color_layout", "RGB")
-
         # image
+        input_desc = input_descs.pop(0)
         input_types.append(
             ct.ImageType(
-                name=input_name,
-                shape=dummy_inputs[input_name].shape,
+                name=input_desc.name,
+                shape=dummy_inputs[input_desc.name].shape,
                 scale=scale,
                 bias=bias,
-                color_layout=color_layout,
+                color_layout=input_desc.color_layout or "RGB",
                 channel_first=True,
             )
         )
 
         if config.task == "masked-im":
             # bool_masked_pos
-            input_name, input_config = input_defs.popitem(last=False)
+            input_desc = input_descs.pop(0)
             input_types.append(
-                ct.TensorType(name=input_name, shape=dummy_inputs[input_name].shape, dtype=np.int32)
+                ct.TensorType(
+                    name=input_desc.name,
+                    shape=dummy_inputs[input_desc.name].shape,
+                    dtype=np.int32
+                )
             )
 
     return input_types
@@ -299,8 +301,9 @@ def export_pytorch(
     # Create dummy input data for doing the JIT trace.
     dummy_inputs = config.generate_dummy_inputs(preprocessor)
 
-    # Convert to Torch tensors and use inputs in order from the config.
-    example_input = [torch.tensor(dummy_inputs[name]) for name in list(config.inputs.keys())]
+    # Convert to Torch tensors, using inputs in order from the config.
+    input_names = [input_desc.name for input_desc in config.inputs]
+    example_input = [torch.tensor(dummy_inputs[name]) for name in input_names]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
 
@@ -366,9 +369,8 @@ def export_pytorch(
 
     spec = mlmodel._spec
 
-    for input_name, input_config in config.inputs.items():
-        if "description" in input_config:
-            mlmodel.input_description[input_name] = input_config["description"]
+    for input_desc in config.inputs:
+        mlmodel.input_description[input_desc.name] = input_desc.description
 
     user_defined_metadata = {}
     if model.config.transformers_version:

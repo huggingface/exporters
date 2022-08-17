@@ -13,11 +13,9 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Any, Mapping
+from typing import Any, List, Mapping
 
-from coremltools.converters.mil import Builder as mb
-
-from .config import CoreMLTextConfig, CoreMLVisionConfig
+from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription
 
 
 class BeitCoreMLConfig(CoreMLVisionConfig):
@@ -59,6 +57,7 @@ class CvTCoreMLConfig(CoreMLVisionConfig):
         # coremltools does support einsum but not the equation "bhlt,bhtv->bhlv"
         # so override the implementation of this operation
         def einsum(context, node):
+            from coremltools.converters.mil import Builder as mb
             from coremltools.converters.mil.frontend._utils import build_einsum_mil
 
             a = context[node.inputs[1]][0]
@@ -77,25 +76,19 @@ class CvTCoreMLConfig(CoreMLVisionConfig):
 
 class DistilBertCoreMLConfig(BertCoreMLConfig):
     @property
-    def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
+    def inputs(self) -> List[InputDescription]:
         if self.task == "multiple-choice":
-            return OrderedDict(
-                [
-                    (
-                        "input_ids",
-                        {
-                            "description": "Indices of input sequence tokens in the vocabulary",
-                            "sequence_length": 128,
-                        }
-                    ),
-                    (
-                        "attention_mask",
-                        {
-                            "description": "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
-                        }
-                    ),
-                ]
-            )
+            return [
+                InputDescription(
+                    "input_ids",
+                    "Indices of input sequence tokens in the vocabulary",
+                    sequence_length=128,
+                ),
+                InputDescription(
+                    "attention_mask",
+                    "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                ),
+            ]
         else:
             return super().inputs
 
@@ -107,6 +100,8 @@ class GPT2CoreMLConfig(CoreMLTextConfig):
 class LeViTCoreMLConfig(CoreMLVisionConfig):
     def patch_pytorch_ops(self):
         def reshape_as(context, node):
+            from coremltools.converters.mil import Builder as mb
+
             a = context[node.inputs[0]]
             b = context[node.inputs[1]]
             y = mb.shape(x=b)
@@ -122,10 +117,10 @@ class MobileBertCoreMLConfig(CoreMLTextConfig):
 
 class MobileViTCoreMLConfig(CoreMLVisionConfig):
     @property
-    def inputs(self) -> OrderedDict[str, Mapping[str, Any]]:
-        input_defs = super().inputs
-        input_defs["image"]["color_layout"] = "BGR"
-        return input_defs
+    def inputs(self) -> List[InputDescription]:
+        input_descs = super().inputs
+        input_descs[0].color_layout = "BGR"
+        return input_descs
 
 
 class SegformerCoreMLConfig(CoreMLVisionConfig):
@@ -146,6 +141,8 @@ class YolosCoreMLConfig(CoreMLVisionConfig):
         # Still seems to work well enough. Note: the bilinear resize is applied to
         # constant tensors, so we could actually remove this op completely!
         def upsample_bicubic2d(context, node):
+            from coremltools.converters.mil import Builder as mb
+
             a = context[node.inputs[0]]
             b = context[node.inputs[1]]
             x = mb.resize_bilinear(x=a, target_size_height=b.val[0], target_size_width=b.val[1], name=node.name)
