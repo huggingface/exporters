@@ -77,6 +77,8 @@ class OutputDescription:
             in the output dictionary of the original Transformers model.
         description (`str`, *optional*, defaults to empty string):
             Output description in the Core ML Model.
+        do_softmax (`bool`, *optional*, defaults to `None`):
+            For tasks that output logits: Applies a softmax to the logits.
         do_upsample (`bool`, *optional*, defaults to `None`):
             For the `"semantic-segmentation"` task: Scales the output to have the same width and height as the input.
         do_argmax (`bool`, *optional*, defaults to `None`):
@@ -84,6 +86,7 @@ class OutputDescription:
     """
     name: str
     description: str = ""
+    do_softmax:  Optional[bool] = None
     do_upsample: Optional[bool] = None
     do_argmax: Optional[bool] = None
 
@@ -264,6 +267,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "probabilities",
                             "Probability of each category",
+                            do_softmax=True,
                         )
                     ),
                     (
@@ -284,6 +288,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "logits",
                             "Classification scores (before softmax)",
+                            do_softmax=False,
                         )
                     ),
                 ]
@@ -297,6 +302,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "token_scores",
                             "Classification scores for each vocabulary token (after softmax)",
+                            do_softmax=True,
                         )
                     ),
                 ]
@@ -310,6 +316,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "logits",
                             "Classification logits (including no-object) for all queries",
+                            do_softmax=False,
                         )
                     ),
                     (
@@ -330,6 +337,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "start_scores",
                             "Span-start scores (after softmax)",
+                            do_softmax=True,
                         )
                     ),
                     (
@@ -337,6 +345,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "end_scores",
                             "Span-end scores (after softmax)",
+                            do_softmax=True,
                         )
                     ),
                 ]
@@ -350,6 +359,7 @@ class CoreMLConfig(ABC):
                         OutputDescription(
                             "classLabels",
                             "Classification scores for each pixel",
+                            do_softmax=False,
                             do_upsample=True,
                             do_argmax=True,
                         )

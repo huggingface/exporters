@@ -207,7 +207,11 @@ if is_torch_available():
             outputs = self.model(inputs, **model_kwargs)
 
             if self.config.task == "image-classification":
-                return torch.nn.functional.softmax(outputs[0], dim=1)  # logits
+                output_desc = output_descs["logits"]
+                if output_desc.do_softmax:
+                    return torch.nn.functional.softmax(outputs[0], dim=1)
+                else:
+                    return outputs[0]  # logits
 
             if self.config.task == "masked-im":
                 # Some models also return loss even if no labels provided (e.g. ViT)
@@ -219,24 +223,33 @@ if is_torch_available():
                 "multiple-choice",
                 "next-sentence-prediction",
                 "sequence-classification",
-                "token-classification"
+                "token-classification",
             ]:
-                return torch.nn.functional.softmax(outputs[0], dim=-1)  # logits
+                output_desc = output_descs["logits"]
+                if output_desc.do_softmax:
+                    return torch.nn.functional.softmax(outputs[0], dim=-1)
+                else:
+                    return outputs[0]  # logits
 
             if self.config.task == "object-detection":
                 return outputs[0], outputs[1]  # logits, pred_boxes
 
             if self.config.task == "question-answering":
-                start_scores = torch.nn.functional.softmax(outputs[0], dim=-1)  # start_logits
-                end_scores   = torch.nn.functional.softmax(outputs[1], dim=-1)  # end_logits
-                return start_scores, end_scores
+                output_desc = output_descs["start_logits"]
+                if output_desc.do_softmax:
+                    start_scores = torch.nn.functional.softmax(outputs[0], dim=-1)
+                    end_scores   = torch.nn.functional.softmax(outputs[1], dim=-1)
+                    return start_scores, end_scores
+                else:
+                  return outputs[0], outputs[1]  # start_logits, end_logits
 
             if self.config.task == "semantic-segmentation":
                 x = outputs[0]  # logits
-
                 output_desc = output_descs["logits"]
                 if output_desc.do_upsample:
                     x = torch.nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
+                if output_desc.do_softmax:
+                    x = torch.nn.functional.softmax(x, dim=1)
                 if output_desc.do_argmax:
                     x = x.argmax(1)
                 return x
@@ -320,18 +333,28 @@ def export_pytorch(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    # For classification models, add the labels into the Core ML model and
-    # designate it as the special `classifier` model type.
-    if config.task in ["image-classification", "multiple-choice", "sequence-classification"]:
-        class_labels = [model.config.id2label[x] for x in range(model.config.num_labels)]
-    elif config.task == "next-sentence-prediction":
-        class_labels = ["true", "false"]
-    else:
-        class_labels = None
+    classifier_tasks = [
+        "image-classification",
+        "multiple-choice",
+        "next-sentence-prediction",
+        "sequence-classification"
+    ]
+    output_descs = config.outputs
+    is_classifier = config.task in classifier_tasks and output_descs["logits"].do_softmax
 
-    if class_labels is not None:
-        classifier_config = ct.ClassifierConfig(class_labels)
-        convert_kwargs['classifier_config'] = classifier_config
+    # For classification models, add the labels into the Core ML model and
+    # designate it as the special "classifier" model type.
+    if is_classifier:
+        if config.task in ["image-classification", "multiple-choice", "sequence-classification"]:
+            class_labels = [model.config.id2label[x] for x in range(model.config.num_labels)]
+        elif config.task == "next-sentence-prediction":
+            class_labels = ["true", "false"]
+        else:
+            class_labels = None
+
+        if class_labels is not None:
+            classifier_config = ct.ClassifierConfig(class_labels)
+            convert_kwargs['classifier_config'] = classifier_config
 
     input_tensors = _get_input_types(preprocessor, config, dummy_inputs)
 
@@ -368,14 +391,7 @@ def export_pytorch(
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
-    output_descs = config.outputs
-
-    if config.task in [
-        "image-classification",
-        "multiple-choice",
-        "next-sentence-prediction",
-        "sequence-classification"
-    ]:
+    if is_classifier:
         output_desc = output_descs["logits"]
         ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_desc.name)
         spec.description.predictedProbabilitiesName = output_desc.name
