@@ -181,7 +181,7 @@ if is_torch_available():
             self.config = config
 
         def forward(self, inputs, extra_input1=None, extra_input2=None):
-            output_defs = self.config.outputs
+            output_descs = self.config.outputs
 
             # Core ML's image preprocessing does not allow a different scaling
             # factor for each color channel, so do this manually.
@@ -234,15 +234,15 @@ if is_torch_available():
             if self.config.task == "semantic-segmentation":
                 x = outputs[0]  # logits
 
-                _, output_config = output_defs.popitem(last=False)
-                if output_config.get("do_upsample", False):
+                output_desc = output_descs["logits"]
+                if output_desc.do_upsample:
                     x = torch.nn.functional.interpolate(x, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
-                if output_config.get("do_argmax", False):
+                if output_desc.do_argmax:
                     x = x.argmax(1)
                 return x
 
             if self.config.task == "default":
-                if len(output_defs) > 1 and len(outputs) > 1:
+                if len(output_descs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:
                     return outputs[0]  # last_hidden_state
@@ -368,7 +368,7 @@ def export_pytorch(
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
-    output_defs = config.outputs
+    output_descs = config.outputs
 
     if config.task in [
         "image-classification",
@@ -376,21 +376,21 @@ def export_pytorch(
         "next-sentence-prediction",
         "sequence-classification"
     ]:
-        output_name, output_config = output_defs.popitem(last=False)
-        ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_name)
-        spec.description.predictedProbabilitiesName = output_name
-        mlmodel.output_description[output_name] = output_config["description"]
+        output_desc = output_descs["logits"]
+        ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_desc.name)
+        spec.description.predictedProbabilitiesName = output_desc.name
+        mlmodel.output_description[output_desc.name] = output_desc.description
 
-        output_name, output_config = output_defs.popitem(last=False)
-        ct.utils.rename_feature(spec, spec.description.predictedFeatureName, output_name)
-        spec.description.predictedFeatureName = output_name
-        mlmodel.output_description[output_name] = output_config["description"]
+        output_desc = output_descs["class_labels"]
+        ct.utils.rename_feature(spec, spec.description.predictedFeatureName, output_desc.name)
+        spec.description.predictedFeatureName = output_desc.name
+        mlmodel.output_description[output_desc.name] = output_desc.description
     else:
-        for i, (output_name, output_config) in enumerate(output_defs.items()):
+        for i, output_desc in enumerate(output_descs.values()):
             if i < len(example_output):
                 output = spec.description.output[i]
-                ct.utils.rename_feature(spec, output.name, output_name)
-                mlmodel.output_description[output_name] = output_config["description"]
+                ct.utils.rename_feature(spec, output.name, output_desc.name)
+                mlmodel.output_description[output_desc.name] = output_desc.description
                 set_multiarray_shape(output, example_output[i].shape)
 
         if config.task in ["object-detection", "semantic-segmentation", "token-classification"]:

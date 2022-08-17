@@ -15,7 +15,7 @@
 from collections import OrderedDict
 from typing import Any, List, Mapping
 
-from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription
+from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription, OutputDescription
 
 
 class BeitCoreMLConfig(CoreMLVisionConfig):
@@ -32,21 +32,23 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
 
 class CvTCoreMLConfig(CoreMLVisionConfig):
     @property
-    def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
         if self.task == "default":
             return OrderedDict(
                 [
                     (
                         "last_hidden_state",
-                        {
-                            "description": "Sequence of hidden-states at the output of the last layer of the model",
-                        }
+                        OutputDescription(
+                            "last_hidden_state",
+                            "Sequence of hidden-states at the output of the last layer of the model",
+                        )
                     ),
                     (
                         "cls_token_value",
-                        {
-                            "description": "Classification token at the output of the last layer of the model",
-                        }
+                        OutputDescription(
+                            "cls_token_value",
+                            "Classification token at the output of the last layer of the model",
+                        )
                     ),
                 ]
             )

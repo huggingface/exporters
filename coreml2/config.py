@@ -66,6 +66,28 @@ class InputDescription:
     color_layout: Optional[str] = None
 
 
+@dataclasses.dataclass
+class OutputDescription:
+    """
+    Data class that describes the properties of a Core ML model output.
+
+    Args:
+        name (`str`):
+            Name of the output in the Core ML model. This does not have to be the same as the name
+            in the output dictionary of the original Transformers model.
+        description (`str`, *optional*, defaults to empty string):
+            Output description in the Core ML Model.
+        do_upsample (`bool`, *optional*, defaults to `None`):
+            For the `"semantic-segmentation"` task: Scales the output to have the same width and height as the input.
+        do_argmax (`bool`, *optional*, defaults to `None`):
+            For the `"semantic-segmentation"` task: Whether to perform an argmax operation on the predicted logits.
+    """
+    name: str
+    description: str = ""
+    do_upsample: Optional[bool] = None
+    do_argmax: Optional[bool] = None
+
+
 class CoreMLConfig(ABC):
     """
     Base class for Core ML exportable model describing metadata on how to export the model through the Core ML format.
@@ -185,34 +207,26 @@ class CoreMLConfig(ABC):
         raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
 
     @property
-    def outputs(self) -> OrderedDict[str, Mapping[int, str]]:
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
         """
-        Ordered mapping of the outputs in the model
-
-        Override this function to change the name of the outputs, their description strings,
-        or any of the additional configuration options.
-
-        Note: You are not allowed to change the order of the outputs!
-
-        Semantic segmentation outputs can have the following options:
-
-        - `do_upsample`: Scales the output to have the same width and height as the input.
-        - `do_argmax`: Whether to perform an argmax operation on the predicted logits.
+        Ordered mapping of the outputs in the original model to the outputs in the exported model.
         """
         if self.modality == "text" and self.task == "default":
             return OrderedDict(
                 [
                     (
                         "last_hidden_state",
-                        {
-                            "description": "Sequence of hidden-states at the output of the last layer of the model",
-                        }
+                        OutputDescription(
+                            "last_hidden_state",
+                            "Sequence of hidden-states at the output of the last layer of the model",
+                        )
                     ),
                     (
                         "pooler_output",
-                        {
-                            "description": "Last layer hidden-state of the first token of the sequence",
-                        }
+                        OutputDescription(
+                            "pooler_output",
+                            "Last layer hidden-state of the first token of the sequence",
+                        )
                     ),
                 ]
             )
@@ -222,15 +236,17 @@ class CoreMLConfig(ABC):
                 [
                     (
                         "last_hidden_state",
-                        {
-                            "description": "Sequence of hidden-states at the output of the last layer of the model",
-                        }
+                        OutputDescription(
+                            "last_hidden_state",
+                            "Sequence of hidden-states at the output of the last layer of the model",
+                        )
                     ),
                     (
                         "pooler_output",
-                        {
-                            "description": "Last layer hidden-state after a pooling operation on the spatial dimensions",
-                        }
+                        OutputDescription(
+                            "pooler_output",
+                            "Last layer hidden-state after a pooling operation on the spatial dimensions",
+                        )
                     ),
                 ]
             )
@@ -244,16 +260,18 @@ class CoreMLConfig(ABC):
             return OrderedDict(
                 [
                     (
-                        "probabilities",
-                        {
-                            "description": "Probability of each category",
-                        }
+                        "logits",
+                        OutputDescription(
+                            "probabilities",
+                            "Probability of each category",
+                        )
                     ),
                     (
-                        "classLabel",
-                        {
-                            "description": "Category with the highest score",
-                        }
+                        "class_labels",
+                        OutputDescription(
+                            "classLabel",
+                            "Category with the highest score",
+                        )
                     ),
                 ]
             )
@@ -263,9 +281,10 @@ class CoreMLConfig(ABC):
                 [
                     (
                         "logits",
-                        {
-                            "description": "Prediction scores (before softmax)",
-                        }
+                        OutputDescription(
+                            "logits",
+                            "Classification scores (before softmax)",
+                        )
                     ),
                 ]
             )
@@ -274,10 +293,11 @@ class CoreMLConfig(ABC):
             return OrderedDict(
                 [
                     (
-                        "token_scores",
-                        {
-                            "description": "Prediction scores for each vocabulary token (after softmax)",
-                        }
+                        "logits",
+                        OutputDescription(
+                            "token_scores",
+                            "Classification scores for each vocabulary token (after softmax)",
+                        )
                     ),
                 ]
             )
@@ -287,15 +307,17 @@ class CoreMLConfig(ABC):
                 [
                     (
                         "logits",
-                        {
-                            "description": "Classification logits (including no-object) for all queries",
-                        }
+                        OutputDescription(
+                            "logits",
+                            "Classification logits (including no-object) for all queries",
+                        )
                     ),
                     (
                         "pred_boxes",
-                        {
-                            "description": "Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height)",
-                        }
+                        OutputDescription(
+                            "pred_boxes",
+                            "Normalized boxes coordinates for all queries, represented as (center_x, center_y, width, height)",
+                        )
                     ),
                 ]
             )
@@ -304,16 +326,18 @@ class CoreMLConfig(ABC):
             return OrderedDict(
                 [
                     (
-                        "start_scores",
-                        {
-                            "description": "Span-start scores (after softmax)",
-                        }
+                        "start_logits",
+                        OutputDescription(
+                            "start_scores",
+                            "Span-start scores (after softmax)",
+                        )
                     ),
                     (
-                        "end_scores",
-                        {
-                            "description": "Span-end scores (after softmax)",
-                        }
+                        "end_logits",
+                        OutputDescription(
+                            "end_scores",
+                            "Span-end scores (after softmax)",
+                        )
                     ),
                 ]
             )
@@ -322,21 +346,18 @@ class CoreMLConfig(ABC):
             return OrderedDict(
                 [
                     (
-                        "classLabels",
-                        {
-                            "description": "Segmentation map",
-                            "do_argmax": True,
-                            "do_upsample": True,
-                        }
+                        "logits",
+                        OutputDescription(
+                            "classLabels",
+                            "Classification scores for each pixel",
+                            do_upsample=True,
+                            do_argmax=True,
+                        )
                     ),
                 ]
             )
 
         raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
-
-        #TODO: maybe do it like ONNX where we just copy the dictionary (don't need the assert then):
-        # common_outputs = self._tasks_to_common_outputs[self.task]
-        # return copy.deepcopy(common_outputs)
 
     @property
     def values_override(self) -> Optional[Mapping[str, Any]]:
