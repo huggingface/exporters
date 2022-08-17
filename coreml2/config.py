@@ -75,56 +75,16 @@ class CoreMLConfig(ABC):
 #     default_fixed_sequence = 8
 #     default_fixed_num_choices = 4
 #     torch_onnx_minimum_version = version.parse("1.8")
-#     _tasks_to_common_outputs = {
-#         "causal-lm": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
-#         "default": OrderedDict({"last_hidden_state": {0: "batch", 1: "sequence"}}),
-#         "image-classification": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
-#         "image-segmentation": OrderedDict(
-#             {
-#                 "logits": {0: "batch", 1: "sequence"},
-#                 "pred_boxes": {0: "batch", 1: "sequence"},
-#                 "pred_masks": {0: "batch", 1: "sequence"},
-#             }
-#         ),
-#         "masked-im": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
-#         "masked-lm": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
-#         "multiple-choice": OrderedDict({"logits": {0: "batch"}}),
-#         "object-detection": OrderedDict(
-#             {
-#                 "logits": {0: "batch", 1: "sequence"},
-#                 "pred_boxes": {0: "batch", 1: "sequence"},
-#             }
-#         ),
-#         "question-answering": OrderedDict(
-#             {
-#                 "start_logits": {0: "batch", 1: "sequence"},
-#                 "end_logits": {0: "batch", 1: "sequence"},
-#             }
-#         ),
-#         "seq2seq-lm": OrderedDict({"logits": {0: "batch", 1: "decoder_sequence"}}),
-#         "sequence-classification": OrderedDict({"logits": {0: "batch"}}),
-#         "token-classification": OrderedDict({"logits": {0: "batch", 1: "sequence"}}),
-#     }
 
     def __init__(self, config: "PretrainedConfig", task: str, modality: str):
         self._config = config
-
-        # if task not in self._tasks_to_common_outputs:
-        #     raise ValueError(
-        #         f"{task} is not a supported task, supported tasks: {self._tasks_to_common_outputs.keys()}"
-        #     )
         self.task = task
         self.modality = modality
 
     @property
-    def inputs(self) -> List[InputDescription]:
+    def inputs(self) -> OrderedDict[str, InputDescription]:
         """
-        Ordered mapping of the inputs in the model
-
-        Override this function to change the name of the inputs, their description strings,
-        or any of the additional configuration options.
-
-        Note: You are not allowed to change the order of the inputs!
+        Ordered mapping of the inputs in the original model to the inputs in the exported model.
         """
         if self.modality == "text" and self.task in [
             "default",
@@ -133,57 +93,94 @@ class CoreMLConfig(ABC):
             "sequence-classification",
             "token-classification",
         ]:
-            return [
-                InputDescription(
-                    "input_ids",
-                    "Indices of input sequence tokens in the vocabulary",
-                    sequence_length=128,
-                ),
-                InputDescription(
-                    "attention_mask",
-                    "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
-                ),
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=128,
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                ]
+            )
 
         if self.task in [
             "multiple-choice",
             "next-sentence-prediction",
         ]:
-            return [
-                InputDescription(
-                    "input_ids",
-                    "Indices of input sequence tokens in the vocabulary",
-                    sequence_length=128,
-                ),
-                InputDescription(
-                    "attention_mask",
-                    "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
-                ),
-                InputDescription(
-                    "token_type_ids",
-                    "Segment token indices to indicate first and second portions of the inputs (0 = sentence A, 1 = sentence B)",
-                ),
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=128,
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                    (
+                        "token_type_ids",
+                        InputDescription(
+                            "token_type_ids",
+                            "Segment token indices to indicate first and second portions of the inputs (0 = sentence A, 1 = sentence B)",
+                        )
+                    ),
+                ]
+            )
 
         if self.modality == "vision" and self.task in [
             "default",
             "object-detection",
             "semantic-segmentation"
         ]:
-            return [
-                InputDescription("image", "Input image", color_layout="RGB")
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "pixel_values",
+                        InputDescription("image", "Input image", color_layout="RGB")
+                    ),
+                ]
+            )
 
         if self.task == "image-classification":
-            return [
-                InputDescription("image", "Image to be classified", color_layout="RGB")
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "pixel_values",
+                        InputDescription("image", "Image to be classified", color_layout="RGB")
+                    ),
+                ]
+            )
 
         if self.task == "masked-im":
-            return [
-                InputDescription("image", "Input image", color_layout="RGB"),
-                InputDescription("bool_masked_pos", "Indicates which patches are masked (1) and which aren't (0)"),
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "pixel_values",
+                        InputDescription("image", "Image to be classified", color_layout="RGB")
+                    ),
+                    (
+                        "bool_masked_pos",
+                        InputDescription("bool_masked_pos", "Indicates which patches are masked (1) and which aren't (0)"),
+                    ),
+                ]
+            )
 
         raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
 
@@ -202,8 +199,6 @@ class CoreMLConfig(ABC):
         - `do_upsample`: Scales the output to have the same width and height as the input.
         - `do_argmax`: Whether to perform an argmax operation on the predicted logits.
         """
-        # TODO: the output for the default task depends on whether this is an image model or not
-
         if self.modality == "text" and self.task == "default":
             return OrderedDict(
                 [
@@ -418,7 +413,7 @@ class CoreMLConfig(ABC):
         dummy_inputs = {}
 
         if self.modality == "text" and isinstance(preprocessor, PreTrainedTokenizerBase):
-            input_desc = input_descs.pop(0)
+            input_desc = input_descs["input_ids"]
             sequence_length = input_desc.sequence_length or 64
 
             if self.task == "multiple-choice":
@@ -427,19 +422,15 @@ class CoreMLConfig(ABC):
                 shape = (1, sequence_length)
 
             input_ids = np.random.randint(0, preprocessor.vocab_size, shape)
-            dummy_inputs[input_desc.name] = input_ids
+            dummy_inputs["input_ids"] = input_ids
 
-            # attention_mask
-            if len(input_descs) > 0:
-                input_desc = input_descs.pop(0)
+            if "attention_mask" in input_descs:
                 attention_mask = np.ones(shape, dtype=np.int64)
-                dummy_inputs[input_desc.name] = attention_mask
+                dummy_inputs["attention_mask"] = attention_mask
 
-            # token_type_ids
-            if len(input_descs) > 0:
-                input_desc = input_descs.pop(0)
+            if "token_type_ids" in input_descs:
                 token_type_ids = np.zeros(shape, dtype=np.int64)
-                dummy_inputs[input_desc.name] = token_type_ids
+                dummy_inputs["token_type_ids"] = token_type_ids
 
         elif self.modality == "vision" and isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
             if hasattr(preprocessor, "crop_size"):
@@ -453,16 +444,12 @@ class CoreMLConfig(ABC):
                 image_width = image_height = image_size
 
             pixel_values = np.random.rand(1, 3, image_height, image_width).astype(np.float32) * 2.0 - 1.0
+            dummy_inputs["pixel_values"] = pixel_values
 
-            input_desc = input_descs.pop(0)
-            dummy_inputs[input_desc.name] = pixel_values
-
-            # bool_masked_pos
             if self.task == "masked-im":
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
                 bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
-                input_desc = input_descs.pop(0)
-                dummy_inputs[input_desc.name] = bool_masked_pos
+                dummy_inputs["bool_masked_pos"] = bool_masked_pos
 
         else:
             raise ValueError(

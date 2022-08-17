@@ -104,31 +104,26 @@ def _get_input_types(
     input_types = []
 
     if config.modality == "text":
-        # input_ids
-        input_desc = input_descs.pop(0)
+        input_desc = input_descs["input_ids"]
         input_types.append(
-            ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
+            ct.TensorType(name=input_desc.name, shape=dummy_inputs["input_ids"].shape, dtype=np.int32)
         )
 
-        # attention_mask
-        if len(input_descs) > 0:
-            input_desc = input_descs.pop(0)
+        if "attention_mask" in input_descs:
+            input_desc = input_descs["attention_mask"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs["attention_mask"].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
 
-        # token_type_ids
-        if len(input_descs) > 0:
-            input_desc = input_descs.pop(0)
+        if "token_type_ids" in input_descs:
+            input_desc = input_descs["token_type_ids"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs[input_desc.name].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs["token_type_ids"].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping token_type_ids input")
-
-        # TODO: could do the above in a loop! (first fix input/output definitions structure)
 
     if config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
@@ -150,12 +145,11 @@ def _get_input_types(
         else:
             scale = 1.0 / 255
 
-        # image
-        input_desc = input_descs.pop(0)
+        input_desc = input_descs["pixel_values"]
         input_types.append(
             ct.ImageType(
                 name=input_desc.name,
-                shape=dummy_inputs[input_desc.name].shape,
+                shape=dummy_inputs["pixel_values"].shape,
                 scale=scale,
                 bias=bias,
                 color_layout=input_desc.color_layout or "RGB",
@@ -164,12 +158,11 @@ def _get_input_types(
         )
 
         if config.task == "masked-im":
-            # bool_masked_pos
-            input_desc = input_descs.pop(0)
+            input_desc = input_descs["bool_masked_pos"]
             input_types.append(
                 ct.TensorType(
                     name=input_desc.name,
-                    shape=dummy_inputs[input_desc.name].shape,
+                    shape=dummy_inputs["bool_masked_pos"].shape,
                     dtype=np.int32
                 )
             )
@@ -302,8 +295,7 @@ def export_pytorch(
     dummy_inputs = config.generate_dummy_inputs(preprocessor)
 
     # Convert to Torch tensors, using inputs in order from the config.
-    input_names = [input_desc.name for input_desc in config.inputs]
-    example_input = [torch.tensor(dummy_inputs[name]) for name in input_names]
+    example_input = [torch.tensor(dummy_inputs[key]) for key in list(config.inputs.keys())]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
 
@@ -369,7 +361,7 @@ def export_pytorch(
 
     spec = mlmodel._spec
 
-    for input_desc in config.inputs:
+    for input_desc in config.inputs.values():
         mlmodel.input_description[input_desc.name] = input_desc.description
 
     user_defined_metadata = {}

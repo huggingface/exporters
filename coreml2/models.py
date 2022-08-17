@@ -76,19 +76,27 @@ class CvTCoreMLConfig(CoreMLVisionConfig):
 
 class DistilBertCoreMLConfig(BertCoreMLConfig):
     @property
-    def inputs(self) -> List[InputDescription]:
+    def inputs(self) -> OrderedDict[str, InputDescription]:
         if self.task == "multiple-choice":
-            return [
-                InputDescription(
-                    "input_ids",
-                    "Indices of input sequence tokens in the vocabulary",
-                    sequence_length=128,
-                ),
-                InputDescription(
-                    "attention_mask",
-                    "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
-                ),
-            ]
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=128,
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                ]
+            )
         else:
             return super().inputs
 
@@ -117,9 +125,9 @@ class MobileBertCoreMLConfig(CoreMLTextConfig):
 
 class MobileViTCoreMLConfig(CoreMLVisionConfig):
     @property
-    def inputs(self) -> List[InputDescription]:
+    def inputs(self) -> OrderedDict[str, InputDescription]:
         input_descs = super().inputs
-        input_descs[0].color_layout = "BGR"
+        input_descs["pixel_values"].color_layout = "BGR"
         return input_descs
 
 
