@@ -15,18 +15,16 @@
 import dataclasses
 from abc import ABC
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
-#TODO: clean up imports (after TF support)
 from transformers.utils import (
-    #TensorType,
+    TensorType,
     is_torch_available,
     is_vision_available,
-    logging
+    logging,
 )
-# from .utils import ParameterFormat, compute_effective_axis_dimension, compute_serialized_parameters_size
 
 
 if TYPE_CHECKING:
@@ -34,6 +32,9 @@ if TYPE_CHECKING:
     from transformers.feature_extraction_utils import FeatureExtractionMixin
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
+
+if is_vision_available():
+    from PIL import Image
 
 logger = logging.get_logger(__name__)
 
@@ -371,19 +372,42 @@ class CoreMLConfig(ABC):
 
         return None
 
-    def generate_dummy_inputs(
+    @property
+    def atol_for_validation(self) -> float:
+        """
+        What absolute tolerance value to use during model conversion validation.
+
+        Returns:
+            Float absolute tolerance value.
+        """
+        return 1e-4
+
+    def patch_pytorch_ops(self) -> Mapping[str, Callable]:
+        """
+        Override this to provide implementation for PyTorch ops that the Core ML
+        converter does not support.
+
+        Returns:
+            `Mapping[str, Callable]` of op names to PyTorch conversion functions.
+        """
+        return {}
+
+    def generate_dummy_inputs_for_export(
         self,
         preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
-    ) -> Mapping[str, np.ndarray]:
+        framework: Optional[TensorType] = None,
+    ) -> Mapping[str, Any]:
         """
         Generate inputs to provide to the Core ML exporter.
 
         Args:
             preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
                 The preprocessor associated with this model configuration.
+            framework (`TensorType`, *optional*, defaults to `None`):
+                The framework (PyTorch or TensorFlow) that the tokenizer will generate tensors for.
 
         Returns:
-            `Mapping[str, np.ndarray]` holding the tensors to provide to the model's forward function.
+            `Mapping[str, Any]` holding the tensors to provide to the model's forward function.
         """
         from transformers.feature_extraction_utils import FeatureExtractionMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
@@ -435,17 +459,79 @@ class CoreMLConfig(ABC):
                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
             )
 
+        if framework == TensorType.PYTORCH and is_torch_available():
+            import torch
+            for key, value in dummy_inputs.items():
+                dummy_inputs[key] = torch.tensor(value)
+
         return dummy_inputs
 
-    def patch_pytorch_ops(self) -> Mapping[str, Callable]:
+    def generate_dummy_inputs_for_validation(
+        self,
+        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
+        framework: Optional[TensorType] = None,
+    ) -> Mapping[str, Tuple[Any, Any]]:
         """
-        Override this to provide implementation for PyTorch ops that the Core ML
-        converter does not support.
+        Generate inputs to provide during validation of the exported Core ML model.
+
+        Args:
+            preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
+                The preprocessor associated with this model configuration.
+            framework (`TensorType`, *optional*, defaults to `None`):
+                The framework (PyTorch or TensorFlow) that the tokenizer will generate tensors for.
 
         Returns:
-            `Mapping[str, Callable]` of op names to PyTorch conversion functions.
+            `Mapping[str, Tuple[Any, Any]]` holding tuples containing the reference and
+            Core ML tensors to provide to the models' forward functions.
         """
-        return {}
+        original_inputs = self.generate_dummy_inputs_for_export(preprocessor, framework)
+
+        dummy_inputs = {}
+        for key, value in original_inputs.items():
+            coreml_value = value
+
+            if hasattr(value, "numpy"):
+                coreml_value = coreml_value.numpy()
+
+            if key in ["attention_mask", "bool_masked_pos", "input_ids", "token_type_ids"]:
+                coreml_value = coreml_value.astype(np.int32)
+
+            elif key == "pixel_values":
+                if hasattr(preprocessor, "crop_size"):
+                    image_size = preprocessor.crop_size
+                else:
+                    image_size = preprocessor.size
+
+                if isinstance(image_size, tuple):
+                    image_width, image_height = image_size
+                else:
+                    image_width = image_height = image_size
+
+                pixel_values = np.random.randint(0, 256, (image_width, image_height, 3), dtype=np.uint8)
+                coreml_value = Image.fromarray(pixel_values)
+
+                # Hacky workaround: the Core ML input is the full-sized image, and so
+                # the feature extractor should not resize or crop it, only normalize.
+                old_do_resize = None
+                if hasattr(preprocessor, "do_resize"):
+                    old_do_resize = preprocessor.do_resize
+                    preprocessor.do_resize = False
+
+                old_crop_pct = None
+                if hasattr(preprocessor, "crop_pct"):
+                    old_crop_pct = preprocessor.crop_pct
+                    preprocessor.crop_pct = 1.0
+
+                value = preprocessor(coreml_value, return_tensors=framework)["pixel_values"]
+
+                if old_do_resize:
+                    preprocessor.do_resize = old_do_resize
+                if old_crop_pct:
+                    preprocessor.crop_pct = old_crop_pct
+
+            dummy_inputs[key] = (value, coreml_value)
+
+        return dummy_inputs
 
 
 class CoreMLTextConfig(CoreMLConfig):

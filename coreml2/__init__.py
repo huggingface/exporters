@@ -14,3 +14,4 @@
 
 from .config import CoreMLConfig
 from .convert import export
+from .validate import validate_model_outputs

@@ -107,7 +107,7 @@ class GPT2CoreMLConfig(CoreMLTextConfig):
     pass
 
 
-class LeViTCoreMLConfig(CoreMLVisionConfig):
+class LevitCoreMLConfig(CoreMLVisionConfig):
     def patch_pytorch_ops(self):
         def reshape_as(context, node):
             from coremltools.converters.mil import Builder as mb

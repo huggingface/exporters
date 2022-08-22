@@ -21,6 +21,7 @@ from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_O
 import numpy as np
 
 from transformers.utils import (
+    TensorType,
     is_torch_available,
     is_tf_available,
     logging,
@@ -301,10 +302,10 @@ def export_pytorch(
             setattr(model.config, override_config_key, override_config_value)
 
     # Create dummy input data for doing the JIT trace.
-    dummy_inputs = config.generate_dummy_inputs(preprocessor)
+    dummy_inputs = config.generate_dummy_inputs_for_export(preprocessor, framework=TensorType.PYTORCH)
 
-    # Convert to Torch tensors, using inputs in order from the config.
-    example_input = [torch.tensor(dummy_inputs[key]) for key in list(config.inputs.keys())]
+    # Put the inputs in the order from the config.
+    example_input = [dummy_inputs[key] for key in list(config.inputs.keys())]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
 
