@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# import copy
 import dataclasses
-# import warnings
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Union
 
 import numpy as np
-# from packaging import version
 
+#TODO: clean up imports (after TF support)
 from transformers.utils import (
     #TensorType,
     is_torch_available,
@@ -36,9 +34,6 @@ if TYPE_CHECKING:
     from transformers.feature_extraction_utils import FeatureExtractionMixin
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-
-# if is_vision_available():
-#     from PIL import Image
 
 logger = logging.get_logger(__name__)
 
@@ -56,7 +51,7 @@ class InputDescription:
             Input description in the Core ML Model.
         sequence_length (`int`, *optional*, defaults to `None`):
             Sequence length for text inputs. In the exported model, the sequence length will be
-            a fixed number, giving the input tensor the shape `(batch_size, sequence_length)`.
+            a fixed size, giving the input tensor the shape `(batch_size, sequence_length)`.
         color_layout (`str`, *optional*, defaults to `None`):
             Channel ordering for image inputs. Either `"RGB"` or `"BGR"`.
     """
@@ -80,7 +75,7 @@ class OutputDescription:
         do_softmax (`bool`, *optional*, defaults to `None`):
             For tasks that output logits: Applies a softmax to the logits.
         do_upsample (`bool`, *optional*, defaults to `None`):
-            For the `"semantic-segmentation"` task: Scales the output to have the same width and height as the input.
+            For the `"semantic-segmentation"` task: Resizes the output to have the same width and height as the input.
         do_argmax (`bool`, *optional*, defaults to `None`):
             For the `"semantic-segmentation"` task: Whether to perform an argmax operation on the predicted logits.
     """
@@ -95,12 +90,6 @@ class CoreMLConfig(ABC):
     """
     Base class for Core ML exportable model describing metadata on how to export the model through the Core ML format.
     """
-
-#     default_fixed_batch = 2
-#     default_fixed_sequence = 8
-#     default_fixed_num_choices = 4
-#     torch_onnx_minimum_version = version.parse("1.8")
-
     def __init__(self, config: "PretrainedConfig", task: str, modality: str):
         self._config = config
         self.task = task
@@ -109,7 +98,7 @@ class CoreMLConfig(ABC):
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         """
-        Ordered mapping of the inputs in the original model to the inputs in the exported model.
+        Ordered mapping of the inputs from the original model to the exported Core ML model.
         """
         if self.modality == "text" and self.task in [
             "default",
@@ -212,7 +201,7 @@ class CoreMLConfig(ABC):
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         """
-        Ordered mapping of the outputs in the original model to the outputs in the exported model.
+        Ordered mapping of the outputs from the original model to the exported Core ML model.
         """
         if self.modality == "text" and self.task == "default":
             return OrderedDict(
@@ -372,70 +361,29 @@ class CoreMLConfig(ABC):
     @property
     def values_override(self) -> Optional[Mapping[str, Any]]:
         """
-        Dictionary of keys to override in the model's config before exporting
+        Dictionary of keys to override in the model's config before exporting.
 
         Returns:
-            Dictionary with the keys (and their corresponding values) to override
+            Dictionary with the keys (and their corresponding values) to override.
         """
         if hasattr(self._config, "use_cache"):
             return {"use_cache": False}
 
         return None
 
-#     @property
-#     def default_batch_size(self) -> int:
-#         """
-#         The default batch size to use if no other indication
-
-#         Returns:
-#             Integer > 0
-#         """
-#         # Using 2 avoid ONNX making assumption about single sample batch
-#         return OnnxConfig.default_fixed_batch
-
-#     @property
-#     def default_sequence_length(self) -> int:
-#         """
-#         The default sequence length to use if no other indication
-
-#         Returns:
-#             Integer > 0
-#         """
-#         return OnnxConfig.default_fixed_sequence
-
-#     @property
-#     def default_num_choices(self) -> int:
-#         """
-#         The default number of choices to use if no other indication
-
-#         Returns:
-#             Integer > 0
-#         """
-#         return OnnxConfig.default_fixed_num_choices
-
-#     @property
-#     def atol_for_validation(self) -> float:
-#         """
-#         What absolute tolerance value to use during model conversion validation.
-
-#         Returns:
-#             Float absolute tolerance value.
-#         """
-#         return 1e-5
-
     def generate_dummy_inputs(
         self,
         preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
     ) -> Mapping[str, np.ndarray]:
         """
-        Generate inputs to provide to the Core ML exporter
+        Generate inputs to provide to the Core ML exporter.
 
         Args:
             preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
                 The preprocessor associated with this model configuration.
 
         Returns:
-            `Mapping[str, np.ndarray]` holding the tensors to provide to the model's forward function
+            `Mapping[str, np.ndarray]` holding the tensors to provide to the model's forward function.
         """
         from transformers.feature_extraction_utils import FeatureExtractionMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
@@ -511,14 +459,14 @@ class CoreMLTextConfig(CoreMLConfig):
     @classmethod
     def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLTextConfig":
         """
-        Instantiate a CoreMLConfig for a specific model
+        Instantiate a `CoreMLConfig` for a specific model.
 
         Args:
-            config: The model's configuration to use when exporting to Core ML
-            task: TODO
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
 
         Returns:
-            CoreMLTextConfig for this model
+            `CoreMLTextConfig` for this model
         """
         return cls(config, task=task)
 
@@ -534,13 +482,13 @@ class CoreMLVisionConfig(CoreMLConfig):
     @classmethod
     def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLVisionConfig":
         """
-        Instantiate a CoreMLConfig for a specific model
+        Instantiate a `CoreMLConfig` for a specific model.
 
         Args:
-            config: The model's configuration to use when exporting to Core ML
-            task: TODO
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
 
         Returns:
-            CoreMLVisionConfig for this model
+            `CoreMLVisionConfig` for this model
         """
         return cls(config, task=task)

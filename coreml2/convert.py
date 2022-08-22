@@ -13,15 +13,13 @@
 # limitations under the License.
 
 import json
-from typing import TYPE_CHECKING, List, Optional, Tuple, Union, Mapping, Any
+from typing import TYPE_CHECKING, List, Union, Mapping
 
 import coremltools as ct
-from coremltools.converters.mil import register_torch_op
 from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_OPS_REGISTRY
 
 import numpy as np
 
-#TODO: if integrating this into transformers, replace imports with ..
 from transformers.utils import (
     is_torch_available,
     is_tf_available,
@@ -77,17 +75,18 @@ def get_labels_as_list(model):
     return labels
 
 
-def _is_image_std_same(preprocessor: "FeatureExtractionMixin") -> bool:
+def is_image_std_same(preprocessor: "FeatureExtractionMixin") -> bool:
+    """Is the image_std normalization the same for all color channels?"""
     return preprocessor.image_std[0] == preprocessor.image_std[1] == preprocessor.image_std[2]
 
 
-def _get_input_types(
+def get_input_types(
     preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
     config: CoreMLConfig,
     dummy_inputs: Mapping[str, np.ndarray],
 ) -> List[Union[ct.ImageType, ct.TensorType]]:
     """
-    Create the ct.InputType objects that describe the inputs to the Core ML model
+    Create the ct.InputType objects that describe the inputs to the Core ML model.
 
     Args:
         preprocessor ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
@@ -135,9 +134,9 @@ def _get_input_types(
         else:
             bias = [ 0.0, 0.0, 0.0 ]
 
-        # If the stddev values are all equal, they can be folded into bias and
-        # scale. If not, Wrapper will insert an additional division operation.
-        if hasattr(preprocessor, "image_std") and _is_image_std_same(preprocessor):
+        # If the stddev values are all equal, they can be folded into `bias` and
+        # `scale`. If not, Wrapper will insert an additional division operation.
+        if hasattr(preprocessor, "image_std") and is_image_std_same(preprocessor):
             bias[0] /= preprocessor.image_std[0]
             bias[1] /= preprocessor.image_std[1]
             bias[2] /= preprocessor.image_std[2]
@@ -185,21 +184,18 @@ if is_torch_available():
 
             # Core ML's image preprocessing does not allow a different scaling
             # factor for each color channel, so do this manually.
-            if hasattr(self.preprocessor, "image_std") and not _is_image_std_same(self.preprocessor):
+            if hasattr(self.preprocessor, "image_std") and not is_image_std_same(self.preprocessor):
                 image_std = torch.tensor(self.preprocessor.image_std).reshape(1, -1, 1, 1)
                 inputs = inputs / image_std
 
             model_kwargs = {
-                #"output_attentions": False,
-                #"output_hidden_states": False,
                 "return_dict": False,
             }
-
             if self.config.modality == "text":
-                if extra_input2 is not None:
-                    model_kwargs["token_type_ids"] = extra_input2
                 if extra_input1 is not None:
                     model_kwargs["attention_mask"] = extra_input1
+                if extra_input2 is not None:
+                    model_kwargs["token_type_ids"] = extra_input2
             elif self.config.modality == "vision":
                 if self.config.task == "masked-im":
                     model_kwargs["bool_masked_pos"] = extra_input1
@@ -215,7 +211,7 @@ if is_torch_available():
 
             if self.config.task == "masked-im":
                 # Some models also return loss even if no labels provided (e.g. ViT)
-                # so need to skip that if it's present.
+                # so skip that output if it's present.
                 return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
 
             if self.config.task in [
@@ -272,7 +268,7 @@ def export_pytorch(
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
-    Export a PyTorch model to Core ML format
+    Export a PyTorch model to Core ML format.
 
     Args:
         preprocessor ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
@@ -356,7 +352,7 @@ def export_pytorch(
             classifier_config = ct.ClassifierConfig(class_labels)
             convert_kwargs['classifier_config'] = classifier_config
 
-    input_tensors = _get_input_types(preprocessor, config, dummy_inputs)
+    input_tensors = get_input_types(preprocessor, config, dummy_inputs)
 
     patched_ops = config.patch_pytorch_ops()
     restore_ops = {}
@@ -439,7 +435,7 @@ def export_tensorflow(
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
-    Export a TensorFlow model to Core ML format
+    Export a TensorFlow model to Core ML format.
 
     Args:
         preprocessor ([`PreTrainedTokenizer`] or [`FeatureExtractionMixin`]):
@@ -471,7 +467,7 @@ def export(
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
-    Export a Pytorch or TensorFlow model to Core ML format
+    Export a Pytorch or TensorFlow model to Core ML format.
 
     Args:
         preprocessor ([`PreTrainedTokenizer`], [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
