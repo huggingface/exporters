@@ -12,5 +12,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """TensorFlow Lite conversion for Hugging Face Transformers models."""
-
-from .tflite import export

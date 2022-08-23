@@ -13,4 +13,6 @@
 # limitations under the License.
 """Core ML conversion for Hugging Face Transformers models."""
 
-from .coreml import export
+from .config import CoreMLConfig
+from .convert import export
+from .validate import validate_model_outputs

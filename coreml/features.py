@@ -82,8 +82,8 @@ def supported_features_mapping(
         raise ValueError("A CoreMLConfig class must be provided")
 
     # TODO: temporary hack
-    import exporters.coreml2.models
-    config_cls = exporters.coreml2
+    import exporters.coreml.models
+    config_cls = exporters.coreml
     #config_cls = transformers
     for attr_name in coreml_config_cls.split("."):
         if not hasattr(config_cls, attr_name): continue  #TODO: temporary hack
