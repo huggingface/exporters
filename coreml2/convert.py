@@ -106,13 +106,13 @@ def get_input_types(
     if config.modality == "text":
         input_desc = input_descs["input_ids"]
         input_types.append(
-            ct.TensorType(name=input_desc.name, shape=dummy_inputs["input_ids"].shape, dtype=np.int32)
+            ct.TensorType(name=input_desc.name, shape=dummy_inputs["input_ids"][0].shape, dtype=np.int32)
         )
 
         if "attention_mask" in input_descs:
             input_desc = input_descs["attention_mask"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs["attention_mask"].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs["attention_mask"][0].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
@@ -120,7 +120,7 @@ def get_input_types(
         if "token_type_ids" in input_descs:
             input_desc = input_descs["token_type_ids"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs["token_type_ids"].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=dummy_inputs["token_type_ids"][0].shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping token_type_ids input")
@@ -149,7 +149,7 @@ def get_input_types(
         input_types.append(
             ct.ImageType(
                 name=input_desc.name,
-                shape=dummy_inputs["pixel_values"].shape,
+                shape=dummy_inputs["pixel_values"][0].shape,
                 scale=scale,
                 bias=bias,
                 color_layout=input_desc.color_layout or "RGB",
@@ -162,7 +162,7 @@ def get_input_types(
             input_types.append(
                 ct.TensorType(
                     name=input_desc.name,
-                    shape=dummy_inputs["bool_masked_pos"].shape,
+                    shape=dummy_inputs["bool_masked_pos"][0].shape,
                     dtype=np.int32
                 )
             )
@@ -302,10 +302,10 @@ def export_pytorch(
             setattr(model.config, override_config_key, override_config_value)
 
     # Create dummy input data for doing the JIT trace.
-    dummy_inputs = config.generate_dummy_inputs_for_export(preprocessor, framework=TensorType.PYTORCH)
+    dummy_inputs = config.generate_dummy_inputs(preprocessor, framework=TensorType.PYTORCH)
 
     # Put the inputs in the order from the config.
-    example_input = [dummy_inputs[key] for key in list(config.inputs.keys())]
+    example_input = [dummy_inputs[key][0] for key in list(config.inputs.keys())]
 
     wrapper = Wrapper(preprocessor, model, config).eval()
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from collections import OrderedDict
-from typing import Any, List, Mapping
 
 from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription, OutputDescription
 

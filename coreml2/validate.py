@@ -57,7 +57,7 @@ def validate_model_outputs(
     else:
         framework = TensorType.TENSORFLOW
 
-    dummy_inputs = config.generate_dummy_inputs_for_validation(preprocessor, framework)
+    dummy_inputs = config.generate_dummy_inputs(preprocessor, framework)
 
     reference_model_inputs = {}
     coreml_inputs = {}
