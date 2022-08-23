@@ -15,7 +15,7 @@
 import dataclasses
 from abc import ABC
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 
@@ -391,6 +391,22 @@ class CoreMLConfig(ABC):
             `Mapping[str, Callable]` of op names to PyTorch conversion functions.
         """
         return {}
+
+    @property
+    def is_classifier(self) -> bool:
+        """
+        Determines whether this is a treated as a special classifier model by Core ML.
+        """
+        classifier_tasks = [
+            "image-classification",
+            "multiple-choice",
+            "next-sentence-prediction",
+            "sequence-classification"
+        ]
+        return self.task in classifier_tasks and self.outputs["logits"].do_softmax
+
+    def get_class_labels(self) -> List[str]:
+        return [self._config.id2label[x] for x in range(self._config.num_labels)]
 
     def _generate_dummy_image(
         self,

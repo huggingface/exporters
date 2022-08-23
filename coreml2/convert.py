@@ -330,28 +330,10 @@ def export_pytorch(
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
-    classifier_tasks = [
-        "image-classification",
-        "multiple-choice",
-        "next-sentence-prediction",
-        "sequence-classification"
-    ]
-    output_descs = config.outputs
-    is_classifier = config.task in classifier_tasks and output_descs["logits"].do_softmax
-
     # For classification models, add the labels into the Core ML model and
     # designate it as the special "classifier" model type.
-    if is_classifier:
-        if config.task in ["image-classification", "multiple-choice", "sequence-classification"]:
-            class_labels = [model.config.id2label[x] for x in range(model.config.num_labels)]
-        elif config.task == "next-sentence-prediction":
-            class_labels = ["true", "false"]
-        else:
-            class_labels = None
-
-        if class_labels is not None:
-            classifier_config = ct.ClassifierConfig(class_labels)
-            convert_kwargs['classifier_config'] = classifier_config
+    if config.is_classifier:
+        convert_kwargs['classifier_config'] = ct.ClassifierConfig(config.get_class_labels())
 
     input_tensors = get_input_types(preprocessor, config, dummy_inputs)
 
@@ -388,7 +370,9 @@ def export_pytorch(
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
-    if is_classifier:
+    output_descs = config.outputs
+
+    if config.is_classifier:
         output_desc = output_descs["logits"]
         ct.utils.rename_feature(spec, spec.description.predictedProbabilitiesName, output_desc.name)
         spec.description.predictedProbabilitiesName = output_desc.name

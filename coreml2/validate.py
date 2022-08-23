@@ -25,6 +25,12 @@ from .config import CoreMLConfig
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 
+def softmax(x, axis=-1):
+    maxes = np.max(x, axis=axis, keepdims=True)
+    shifted_exp = np.exp(x - maxes)
+    return shifted_exp / shifted_exp.sum(axis=axis, keepdims=True)
+
+
 def validate_model_outputs(
     config: CoreMLConfig,
     preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
@@ -80,6 +86,62 @@ def validate_model_outputs(
         if desc.name in coreml_output_names:
             coreml_output_internal_names.append(name)
 
+    spec = mlmodel._spec
+
+    # Classifier models are special in Core ML
+    if config.is_classifier:
+        logger.info(f"\t- Core ML model is classifier, validating output")
+
+        if is_torch_available() and issubclass(type(reference_model), PreTrainedModel):
+            ref_logits = ref_outputs_dict["logits"].detach().numpy()
+        else:
+            ref_logits = ref_outputs_dict["logits"].numpy()
+
+        labels_name = spec.description.predictedFeatureName
+        coreml_value = coreml_outputs[labels_name]
+
+        ref_value = reference_model.config.id2label[np.argmax(ref_logits, axis=-1)[0]]
+        if coreml_value != ref_value:
+            logger.info(f"\t\t-[x] predicted class {coreml_value} doesn't match {ref_value}")
+            raise ValueError(
+                "Predicted class doesn't match between reference model and Core ML exported model: "
+                f"Got {ref_value} (reference) and {coreml_value} (Core ML)"
+            )
+        else:
+            logger.info(f"\t\t-[✓] predicted class {coreml_value} matches {ref_value}")
+
+        probs_name = spec.description.predictedProbabilitiesName
+        coreml_value = coreml_outputs[probs_name]
+        ref_value = softmax(ref_logits, axis=-1).squeeze()
+
+        # Shape
+        if len(coreml_value) != len(ref_value):
+            logger.info(f"\t\t-[x] number of classes {len(coreml_value)} doesn't match {len(ref_value)}")
+            raise ValueError(
+                "Output shape doesn't match between reference model and Core ML exported model: "
+                f"Got {len(ref_value)} (reference) and {len(coreml_value)} (Core ML)"
+            )
+        else:
+            logger.info(f"\t\t-[✓] number of classes {len(coreml_value)} matches {len(ref_value)}")
+
+        # Core ML probabilities are in a dict, put in sorted list for comparing
+        class_labels = config.get_class_labels()
+        coreml_probs = np.zeros_like(ref_value)
+        for i in range(len(ref_value)):
+            coreml_probs[i] = coreml_value[class_labels[i]]
+
+        # Values
+        if not np.allclose(ref_value, coreml_probs, atol=atol):
+            logger.info(f"\t\t-[x] values not close enough (atol: {atol})")
+            raise ValueError(
+                "Output values do not match between reference model and Core ML exported model: "
+                f"Got max absolute difference of: {np.amax(np.abs(ref_value - coreml_probs))}"
+            )
+        else:
+            logger.info(f"\t\t-[✓] all values close (atol: {atol})")
+
+        return
+
     # Check that keys in coreml_output_internal are a subset of keys from ref_outputs
     ref_outputs_set = set(ref_outputs_dict.keys())
     coreml_outputs_set = set(coreml_output_internal_names)
@@ -88,7 +150,7 @@ def validate_model_outputs(
             f"\t-[x] Core ML model output names {coreml_outputs_set} do not match reference model {ref_outputs_set}"
         )
         raise ValueError(
-            "Outputs doesn't match between reference model and ONNX exported model: "
+            "Output names do not match between reference model and Core ML exported model: "
             f"{coreml_outputs_set.difference(ref_outputs_set)}"
         )
     else:
@@ -103,15 +165,24 @@ def validate_model_outputs(
             ref_value = ref_outputs_dict[name].detach().numpy()
         else:
             ref_value = ref_outputs_dict[name].numpy()
+
+        if output_descs[name].do_softmax:
+            axis = 1 if config.task == "semantic-segmentation" else -1
+            ref_value = softmax(ref_value, axis=axis)
+
         logger.info(f'\t- Validating Core ML model output "{name}":')
 
         # Shape
         if not coreml_value.shape == ref_value.shape:
-            logger.info(f"\t\t-[x] shape {coreml_value.shape} doesn't match {ref_value.shape}")
-            raise ValueError(
-                "Outputs shape doesn't match between reference model and Core ML exported model: "
-                f"Got {ref_value.shape} (reference) and {coreml_value.shape} (Core ML)"
-            )
+            if config.task == "semantic-segmentation" and (output_descs[name].do_upsample or output_descs[name].do_argmax):
+                logger.info(f"\t\t-[ ] cannot compare output shapes because of do_upsample or do_argmax options")
+                continue
+            else:
+                logger.info(f"\t\t-[x] shape {coreml_value.shape} doesn't match {ref_value.shape}")
+                raise ValueError(
+                    "Output shape doesn't match between reference model and Core ML exported model: "
+                    f"Got {ref_value.shape} (reference) and {coreml_value.shape} (Core ML)"
+                )
         else:
             logger.info(f"\t\t-[✓] {coreml_value.shape} matches {ref_value.shape}")
 
@@ -119,7 +190,7 @@ def validate_model_outputs(
         if not np.allclose(ref_value, coreml_value, atol=atol):
             logger.info(f"\t\t-[x] values not close enough (atol: {atol})")
             raise ValueError(
-                "Outputs values doesn't match between reference model and Core ML exported model: "
+                "Output values do not match between reference model and Core ML exported model: "
                 f"Got max absolute difference of: {np.amax(np.abs(ref_value - coreml_value))}"
             )
         else:
