@@ -291,8 +291,6 @@ Additional notes:
 
 - ML Programs currently only support 16-bit float quantization, not integer quantization. This is a limitation of Core ML.
 
-- Image classifier models have the usual `classLabel` and `probabilities` outputs, but also a "hidden" `var_xxx` output with the softmax results. This appears to be a minor bug in the converter; it doesn't hurt anything to keep this extra output.
-
 ### TensorFlow Lite
 
 The `exporters.tflite` module uses the [TFLiteConverter](https://www.tensorflow.org/lite/convert/) package to perform the conversion from TensorFlow to TF Lite format.

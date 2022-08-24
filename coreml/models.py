@@ -29,7 +29,7 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
-class CvTCoreMLConfig(CoreMLVisionConfig):
+class CvtCoreMLConfig(CoreMLVisionConfig):
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         if self.task == "default":

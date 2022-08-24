@@ -413,7 +413,7 @@ class CoreMLConfig(ABC):
         preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
         framework: Optional[TensorType] = None,
     ) -> Tuple[Any, Any]:
-        if hasattr(preprocessor, "crop_size"):
+        if hasattr(preprocessor, "crop_size") and preprocessor.do_center_crop:
             image_size = preprocessor.crop_size
         else:
             image_size = preprocessor.size
@@ -507,7 +507,8 @@ class CoreMLConfig(ABC):
         if framework == TensorType.PYTORCH and is_torch_available():
             import torch
             for key, (ref_value, coreml_value) in dummy_inputs.items():
-                dummy_inputs[key] = (torch.tensor(ref_value), coreml_value)
+                if isinstance(ref_value, np.ndarray):
+                    dummy_inputs[key] = (torch.tensor(ref_value), coreml_value)
 
         return dummy_inputs
 

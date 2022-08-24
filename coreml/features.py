@@ -157,7 +157,7 @@ class FeaturesManager:
         "cvt": supported_features_mapping(
             "default",
             "image-classification",
-            coreml_config_cls="models.convnext.ConvNextCoreMLConfig",
+            coreml_config_cls="models.cvt.CvtCoreMLConfig",
         ),
         "distilbert": supported_features_mapping(
             "default",
@@ -315,12 +315,12 @@ class FeaturesManager:
         """
         model_class = FeaturesManager.get_model_class_for_feature(feature, framework)
         try:
-            model = model_class.from_pretrained(model, cache_dir=cache_dir)
+            model = model_class.from_pretrained(model, cache_dir=cache_dir, torchscript=True)
         except OSError:
             if framework == "pt":
                 model = model_class.from_pretrained(model, from_tf=True, cache_dir=cache_dir)
             else:
-                model = model_class.from_pretrained(model, from_pt=True, cache_dir=cache_dir)
+                model = model_class.from_pretrained(model, from_pt=True, cache_dir=cache_dir, torchscript=True)
         return model
 
     @staticmethod
