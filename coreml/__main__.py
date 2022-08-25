@@ -14,7 +14,9 @@
 
 from argparse import ArgumentParser
 from pathlib import Path
+
 from coremltools import ComputeUnit
+from coremltools.models.utils import _is_macos, _macos_version
 
 from transformers.models.auto import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
 from transformers.onnx.utils import get_preprocessor
@@ -106,7 +108,11 @@ def main():
     if args.atol is None:
         args.atol = coreml_config.atol_for_validation
 
-    validate_model_outputs(coreml_config, preprocessor, model, mlmodel, args.atol)
+    if not _is_macos() or _macos_version() < (12, 0):
+        logger.info("Skipping model validation, requires macOS 12.0 or later")
+    else:
+        validate_model_outputs(coreml_config, preprocessor, model, mlmodel, args.atol)
+
     logger.info(f"All good, model saved at: {args.output.as_posix()}")
 
 
