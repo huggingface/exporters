@@ -36,7 +36,7 @@ Extra stuff the Core ML exporter does:
 
 - The exporter may add extra metadata to allow making predictions from Xcode's model previewer.
 
-- Quantization and other optimizations can automatically be applied by `coremltools`, and therefore are part of the Core ML exporting workflow. The user can always make additional changes to the Core ML afterwards using `coremltools`.
+- Quantization and other optimizations can automatically be applied by `coremltools`, and therefore are part of the Core ML exporting workflow. The user can always make additional changes to the Core ML afterwards using `coremltools`, such as renaming the inputs and outputs, applying quantization, etc.
 
 Note: Tokenizers are not a built-in feature of Core ML. A model that requires tokenized input must be tokenized by the user themselves. This is outside the scope of the Core ML exporter.
 
