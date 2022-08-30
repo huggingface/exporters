@@ -1,3 +1,4 @@
+# coding=utf-8
 # Copyright 2022 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -491,7 +492,11 @@ class CoreMLConfig(ABC):
                 token_type_ids = np.zeros(shape, dtype=np.int64)
                 dummy_inputs["token_type_ids"] = (token_type_ids, token_type_ids.astype(np.int32))
 
-        elif self.modality == "vision" and isinstance(preprocessor, FeatureExtractionMixin) and preprocessor.model_input_names[0] == "pixel_values":
+        elif (
+            self.modality == "vision"
+            and isinstance(preprocessor, FeatureExtractionMixin)
+            and preprocessor.model_input_names[0] == "pixel_values"
+        ):
             dummy_inputs["pixel_values"] = self._generate_dummy_image(preprocessor, framework)
 
             if self.task == "masked-im":
