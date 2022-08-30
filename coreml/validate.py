@@ -90,7 +90,7 @@ def validate_model_outputs(
 
     # Classifier models are special in Core ML
     if config.is_classifier:
-        logger.info(f"\t- Core ML model is classifier, validating output")
+        logger.info("\t- Core ML model is classifier, validating output")
 
         if is_torch_available() and issubclass(type(reference_model), PreTrainedModel):
             ref_logits = ref_outputs_dict["logits"].detach().numpy()
@@ -175,7 +175,7 @@ def validate_model_outputs(
         # Shape
         if not coreml_value.shape == ref_value.shape:
             if config.task == "semantic-segmentation" and (output_descs[name].do_upsample or output_descs[name].do_argmax):
-                logger.info(f"\t\t-[ ] cannot compare outputs because of do_upsample or do_argmax options")
+                logger.info("\t\t-[ ] cannot compare outputs because of do_upsample or do_argmax options")
                 continue
             else:
                 logger.info(f"\t\t-[x] shape {coreml_value.shape} doesn't match {ref_value.shape}")

@@ -72,7 +72,7 @@ class CvtCoreMLConfig(CoreMLVisionConfig):
 
             context.add(x)
 
-        return { "einsum": einsum }
+        return {"einsum": einsum}
 
 
 class DistilBertCoreMLConfig(BertCoreMLConfig):
@@ -117,7 +117,7 @@ class LevitCoreMLConfig(CoreMLVisionConfig):
             x = mb.reshape(x=a, shape=y, name=node.name)
             context.add(x)
 
-        return { "reshape_as": reshape_as }
+        return {"reshape_as": reshape_as}
 
 
 class MobileBertCoreMLConfig(CoreMLTextConfig):
@@ -157,4 +157,4 @@ class YolosCoreMLConfig(CoreMLVisionConfig):
             x = mb.resize_bilinear(x=a, target_size_height=b.val[0], target_size_width=b.val[1], name=node.name)
             context.add(x)
 
-        return { "upsample_bicubic2d": upsample_bicubic2d }
+        return {"upsample_bicubic2d": upsample_bicubic2d}

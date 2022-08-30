@@ -62,7 +62,7 @@ def main():
 
     args = parser.parse_args()
 
-    if (not args.output.is_file()) and (not args.output.suffix in [".mlpackage", ".mlmodel"]):
+    if (not args.output.is_file()) and (args.output.suffix not in [".mlpackage", ".mlmodel"]):
         args.output = args.output.joinpath("Model.mlpackage")
     if not args.output.parent.exists():
         args.output.parent.mkdir(parents=True)

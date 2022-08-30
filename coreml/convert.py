@@ -133,7 +133,7 @@ def get_input_types(
                 -preprocessor.image_mean[2],
             ]
         else:
-            bias = [ 0.0, 0.0, 0.0 ]
+            bias = [0.0, 0.0, 0.0]
 
         # If the stddev values are all equal, they can be folded into `bias` and
         # `scale`. If not, Wrapper will insert an additional division operation.
@@ -235,10 +235,10 @@ if is_torch_available():
                 output_desc = output_descs["start_logits"]
                 if output_desc.do_softmax:
                     start_scores = torch.nn.functional.softmax(outputs[0], dim=-1)
-                    end_scores   = torch.nn.functional.softmax(outputs[1], dim=-1)
+                    end_scores = torch.nn.functional.softmax(outputs[1], dim=-1)
                     return start_scores, end_scores
                 else:
-                  return outputs[0], outputs[1]  # start_logits, end_logits
+                    return outputs[0], outputs[1]  # start_logits, end_logits
 
             if self.config.task == "semantic-segmentation":
                 x = outputs[0]  # logits
@@ -326,7 +326,7 @@ def export_pytorch(
     else:
         example_output = [example_output.numpy()]
 
-    convert_kwargs = { }
+    convert_kwargs = {}
     if not legacy:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
@@ -440,7 +440,7 @@ def export_tensorflow(
     Returns:
         `ct.models.MLModel`: the Core ML model object
     """
-    raise AssertionError(f"Core ML export does not currently support TensorFlow models")
+    raise AssertionError("Core ML export does not currently support TensorFlow models")
 
 
 def export(
