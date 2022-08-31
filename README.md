@@ -422,8 +422,6 @@ The Core ML exporter writes models in the **mlpackage** format. Unfortunately, f
 
 Known models that need to be exported with `use_legacy_format=True` are: GPT2, DistilGPT2.
 
-Bug: For `image-classifier` models the number of predicted classes is wrong. Instead of 1000 classes, the Core ML classifier model outputs a dictionary with 999 elements.
-
 #### Unsupported models
 
 The following models are known to give errors when attempting conversion to Core ML format:

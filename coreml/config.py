@@ -414,8 +414,36 @@ class CoreMLConfig(ABC):
         ]
         return self.task in classifier_tasks and self.outputs["logits"].do_softmax
 
+    def _rename_duplicate_labels(self, labels):
+        """
+        Renames duplicate label names. Core ML puts the labels as keys into a dictionary,
+        and so all the label names need to be unique.
+        """
+        unique_labels = []
+        used_labels = set()
+
+        for label in labels:
+            while label in used_labels:
+                label = label + "_duplicate"
+
+            used_labels.add(label)
+            unique_labels.append(label)
+
+        if len(unique_labels) != len(set(unique_labels)):
+            raise AssertionError("Unable to remove duplicates from the provided labels")
+
+        return unique_labels
+
     def get_class_labels(self) -> List[str]:
-        return [self._config.id2label[x] for x in range(self._config.num_labels)]
+        """
+        Return the model's classification labels as a sorted list.
+        """
+        labels = [self._config.id2label[x] for x in range(self._config.num_labels)]
+
+        if len(labels) != len(set(labels)):
+            labels = self._rename_duplicate_labels(labels)
+
+        return labels
 
     def _generate_dummy_image(
         self,
