@@ -19,7 +19,9 @@ from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription, Outp
 
 
 class BeitCoreMLConfig(CoreMLVisionConfig):
-    pass
+    @property
+    def atol_for_validation(self) -> float:
+        return 0.01
 
 
 class BertCoreMLConfig(CoreMLTextConfig):
@@ -27,7 +29,9 @@ class BertCoreMLConfig(CoreMLTextConfig):
 
 
 class ConvNextCoreMLConfig(CoreMLVisionConfig):
-    pass
+    @property
+    def atol_for_validation(self) -> float:
+        return 1e-3
 
 
 class CvtCoreMLConfig(CoreMLVisionConfig):
@@ -75,6 +79,10 @@ class CvtCoreMLConfig(CoreMLVisionConfig):
 
         return {"einsum": einsum}
 
+    @property
+    def atol_for_validation(self) -> float:
+        return 0.01
+
 
 class DistilBertCoreMLConfig(BertCoreMLConfig):
     @property
@@ -120,6 +128,10 @@ class LevitCoreMLConfig(CoreMLVisionConfig):
 
         return {"reshape_as": reshape_as}
 
+    @property
+    def atol_for_validation(self) -> float:
+        return 0.01
+
 
 class MobileBertCoreMLConfig(CoreMLTextConfig):
     pass
@@ -159,3 +171,8 @@ class YolosCoreMLConfig(CoreMLVisionConfig):
             context.add(x)
 
         return {"upsample_bicubic2d": upsample_bicubic2d}
+
+    @property
+    def atol_for_validation(self) -> float:
+        # because of bilinear instead of bicubic, atol must be very large here
+        return 10
