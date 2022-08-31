@@ -113,7 +113,7 @@ def validate_model_outputs(
 
         probs_name = spec.description.predictedProbabilitiesName
         coreml_value = coreml_outputs[probs_name]
-        ref_value = softmax(ref_logits, axis=-1).squeeze()
+        ref_value = softmax(ref_logits, axis=-1)[0]
 
         # Shape
         if len(coreml_value) != len(ref_value):
