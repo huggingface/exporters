@@ -208,7 +208,6 @@ Additional arguments that can be provided:
 - `--preprocessor <value>`: Which type of preprocessor to use. `auto` tries to automatically detect it. Possible values are: `auto` (the default), `tokenizer`, `feature_extractor`, `processor`.
 - `--atol <number>`: The absolute difference tolerence used when validating the model. The default value is 1e-4.
 - `--quantize <value>`: Whether to quantize the model weights. The possible quantization options are: `float32` for no quantization (the default) or `float16` for 16-bit floating point.
-- `--legacy`: By default, a model is generated in the ML Program format. By providing the `--legacy`, option the older NeuralNetwork format will be used. This is not recommended and only exists as a workaround for models that fail to convert to the ML Program format.
 - `--compute_units <value>`: Whether to optimize the model for CPU, GPU, and/or Neural Engine. Possible values are: `all` (the default), `cpu_and_gpu`, `cpu_only`, `cpu_and_ne`.
 
 ### Using the exported model
@@ -294,6 +293,8 @@ Not all inputs or outputs are always required:
 
 Removing inputs and/or outputs is again accomplished by making a subclass of `CoreMLConfig` and overriding the `inputs` and `outputs` properties.
 
+By default, a model is generated in the ML Program format. By overriding the `use_legacy_format` property to return `True`, the older NeuralNetwork format will be used. This is not recommended and only exists as a workaround for models that fail to convert to the ML Program format.
+
 Once you have the modified `config` instance, you can use it to export the model following the instructions from the section "Exporting the model" below.
 
 Not everything is described by the configuration objects. The behavior of the converted model is also determined by the model's tokenizer or feature extractor. For example, to use a different input image size, you'd create the feature extractor with different resizing or cropping settings and use that during the conversion instead of the default feature extractor.
@@ -336,7 +337,6 @@ Note: For the best results, pass the argument `torchscript=True` to `from_pretra
 Additional options that can be passed into `export()`:
 
 - `quantize`: Use `"float32"` for no quantization (the default), `"float16"` to quantize the weights to 16-bit floats.
-- `legacy`: If `True`, the converter will produce a model in the older NeuralNetwork format. By default, the ML Program format will be used.
 - `compute_units`: Whether to optimize the model for CPU, GPU, and/or Neural Engine. Defaults to `coremltools.ComputeUnit.ALL`.
 
 It is normal for the Core ML exporter to print out a lot of warning and information messages. In particular, you might see messages such as these:
@@ -362,7 +362,7 @@ Finally, save the model. You can open the resulting **mlpackage** file in Xcode 
 mlmodel.save("ViT.mlpackage")
 ```
 
-If you used the `legacy` option, the model can be saved as `ModelName.mlmodel` instead of `.mlpackage`.
+Note: If the configuration object used returns `True` from `use_legacy_format`, the model can be saved as `ModelName.mlmodel` instead of `.mlpackage`.
 
 The [Hugging Face Hub](https://huggingface.co) can also host your Core ML models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
 
@@ -418,9 +418,9 @@ If the Core ML export fails, you have a couple of options:
 
 #### Bugs and limitations
 
-The Core ML exporter writes models in the **mlpackage** format. Unfortunately, for some models the generated ML Program is incorrect, in which case it's recommended to convert the model to the older NeuralNetwork format by passing in the `legacy` argument. On certain hardware, the older format may also run more efficiently. If you're not sure which one to use, export the model twice and compare the two versions.
+The Core ML exporter writes models in the **mlpackage** format. Unfortunately, for some models the generated ML Program is incorrect, in which case it's recommended to convert the model to the older NeuralNetwork format by setting the configuration object's `use_legacy_format` property to `True`. On certain hardware, the older format may also run more efficiently. If you're not sure which one to use, export the model twice and compare the two versions.
 
-Known models that need to be exported with `legacy=True` are: GPT2, DistilGPT2.
+Known models that need to be exported with `use_legacy_format=True` are: GPT2, DistilGPT2.
 
 Bug: For `image-classifier` models the number of predicted classes is wrong. Instead of 1000 classes, the Core ML classifier model outputs a dictionary with 999 elements.
 

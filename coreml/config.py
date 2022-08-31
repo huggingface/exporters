@@ -383,6 +383,14 @@ class CoreMLConfig(ABC):
         """
         return 1e-4
 
+    @property
+    def use_legacy_format(self) -> bool:
+        """
+        If `True`, the converter will produce a model in the older NeuralNetwork format.
+        By default, the ML Program format will be used.
+        """
+        return False
+
     def patch_pytorch_ops(self) -> Mapping[str, Callable]:
         """
         Override this to provide implementation for PyTorch ops that the Core ML

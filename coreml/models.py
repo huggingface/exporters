@@ -112,7 +112,9 @@ class DistilBertCoreMLConfig(BertCoreMLConfig):
 
 
 class GPT2CoreMLConfig(CoreMLTextConfig):
-    pass
+    @property
+    def use_legacy_format(self) -> bool:
+        return True
 
 
 class LevitCoreMLConfig(CoreMLVisionConfig):

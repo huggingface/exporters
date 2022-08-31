@@ -266,7 +266,6 @@ def export_pytorch(
     model: "PreTrainedModel",
     config: CoreMLConfig,
     quantize: str = "float32",
-    legacy: bool = False,
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
@@ -281,9 +280,6 @@ def export_pytorch(
             The Core ML configuration associated with the exported model.
         quantize (`str`, *optional*, defaults to `"float32"`):
             Quantization options. Possible values: `"float32"`, `"float16"`.
-        legacy (`bool`, *optional*, defaults to `False`):
-            If `True`, the converter will produce a model in the older NeuralNetwork format.
-            By default, the ML Program format will be used.
         compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
             Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
@@ -328,7 +324,7 @@ def export_pytorch(
         example_output = [example_output.numpy()]
 
     convert_kwargs = {}
-    if not legacy:
+    if not config.use_legacy_format:
         convert_kwargs["compute_precision"] = ct.precision.FLOAT16 if quantize == "float16" else ct.precision.FLOAT32
 
     # For classification models, add the labels into the Core ML model and
@@ -351,7 +347,7 @@ def export_pytorch(
     mlmodel = ct.convert(
         traced_model,
         inputs=input_tensors,
-        convert_to="neuralnetwork" if legacy else "mlprogram",
+        convert_to="neuralnetwork" if config.use_legacy_format else "mlprogram",
         compute_units=compute_units,
         **convert_kwargs,
     )
@@ -406,7 +402,7 @@ def export_pytorch(
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)
 
-    if legacy and quantize == "float16":
+    if config.use_legacy_format and quantize == "float16":
         mlmodel = ct.models.neural_network.quantization_utils.quantize_weights(mlmodel, nbits=16)
 
     return mlmodel
@@ -417,7 +413,6 @@ def export_tensorflow(
     model: "TFPreTrainedModel",
     config: CoreMLConfig,
     quantize: str = "float32",
-    legacy: bool = False,
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
@@ -432,9 +427,6 @@ def export_tensorflow(
             The Core ML configuration associated with the exported model.
         quantize (`str`, *optional*, defaults to `"float32"`):
             Quantization options. Possible values: `"float32"`, `"float16"`.
-        legacy (`bool`, *optional*, defaults to `False`):
-            If `True`, the converter will produce a model in the older NeuralNetwork format.
-            By default, the ML Program format will be used.
         compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
             Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
@@ -449,7 +441,6 @@ def export(
     model: Union["PreTrainedModel", "TFPreTrainedModel"],
     config: CoreMLConfig,
     quantize: str = "float32",
-    legacy: bool = False,
     compute_units: ct.ComputeUnit = ct.ComputeUnit.ALL,
 ) -> ct.models.MLModel:
     """
@@ -464,9 +455,6 @@ def export(
             The Core ML configuration associated with the exported model.
         quantize (`str`, *optional*, defaults to `"float32"`):
             Quantization options. Possible values: `"float32"`, `"float16"`.
-        legacy (`bool`, *optional*, defaults to `False`):
-            If `True`, the converter will produce a model in the older NeuralNetwork format.
-            By default, the ML Program format will be used.
         compute_units (`ct.ComputeUnit`, *optional*, defaults to `ct.ComputeUnit.ALL`):
             Whether to optimize the model for CPU, GPU, and/or Neural Engine.
 
@@ -480,8 +468,8 @@ def export(
         )
 
     if is_torch_available() and issubclass(type(model), PreTrainedModel):
-        return export_pytorch(preprocessor, model, config, quantize, legacy, compute_units)
+        return export_pytorch(preprocessor, model, config, quantize, compute_units)
     elif is_tf_available() and issubclass(type(model), TFPreTrainedModel):
-        return export_tensorflow(preprocessor, model, config, quantize, legacy, compute_units)
+        return export_tensorflow(preprocessor, model, config, quantize, compute_units)
     else:
         raise ValueError(f"Cannot convert unknown model type: {type(model)}")
