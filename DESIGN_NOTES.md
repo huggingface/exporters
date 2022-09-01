@@ -111,3 +111,15 @@ The Core ML exporter needs to make certain assumptions about the Transformers mo
 - Just as in the ONNX exporter, the `validate_model_outputs()` function takes an `atol` argument for the absolute tolerance. It might be more appropriate to do this test as `max(abs(coreml - reference)) / max(abs(reference))` to get an error measurement that's relative to the magnitude of the values in the output tensors.
 
 - Image classifier models have the usual `classLabel` and `probabilities` outputs, but also a "hidden" `var_xxx` output with the softmax results. This appears to be a minor bug in the converter; it doesn't hurt anything to keep this extra output.
+
+## Running the tests
+
+The unit tests attempt to convert all supported models, and verify that their output is close to that of the original models. This can be very slow! These tests require a Mac.
+
+```
+RUN_SLOW=1 PYTHONPATH="." pytest exporters/tests/test_coreml.py --capture=sys -W ignore
+```
+
+The `--capture=sys` and `-W ignore` arguments are used to suppress the coremltools progress bars and other messages.
+
+Tip: After running the tests, go into `/private/var/folders/...` and remove all the `.mlpackage` and `.mlmodel` files, as well as the `com.apple.MetalPerformanceShadersGraph` directory. coremtools leaves a lot of junk here that can quickly eat up your local storage space.

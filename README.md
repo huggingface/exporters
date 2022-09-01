@@ -14,23 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# 🤗 Core ML Exporters
+# 🤗 Exporters
 
 👷 **WORK IN PROGRESS** 👷
 
-This package lets you export 🤗 Transformers models to Core ML.
+This package lets you export 🤗 Transformers models to Core ML and TensorFlow Lite.
 
-## When to use Core ML Exporters
+## When to use 🤗 Exporters
 
-🤗 Transformers models are implemented in PyTorch, TensorFlow, or JAX. However, for deployment you might want to use a different framework such as Core ML. This library makes it easy to convert Transformers models to the Core ML format.
+🤗 Transformers models are implemented in PyTorch, TensorFlow, or JAX. However, for deployment you might want to use a different framework such as Core ML or TensorFlow Lite. This library makes it easy to convert Transformers models to these formats.
 
-Core ML Exporters uses the [coremltools](https://coremltools.readme.io/docs) package to perform the conversion from PyTorch or TensorFlow to Core ML. The aim of Core ML Exporters is to be more convenient than writing your own conversion script with coremltools, and to be tightly integrated with the 🤗 Transformers library and the Hugging Face Hub.
+The aim of the Exporters package is to be more convenient than writing your own conversion script with *coremltools* or *TFLiteConverter*, and to be tightly integrated with the 🤗 Transformers library and the Hugging Face Hub.
 
 Note: Keep in mind that Transformer models are usually quite large and are not always suitable for use on mobile devices. It might be a good idea to [optimize the model for inference](https://github.com/huggingface/optimum) first using 🤗 Optimum.
+
+## Installation
+
+TODO
+
+requirements.txt
 
 ## Core ML
 
 [Core ML](https://developer.apple.com/machine-learning/core-ml/) is Apple's software library for fast on-device model inference with neural networks and other types of machine learning models. It can be used on macOS, iOS, tvOS, and watchOS, and is optimized for using the CPU, GPU, and Apple Neural Engine. Although the Core ML framework is proprietary, the Core ML file format is an open format.
+
+The Core ML exporter uses [coremltools](https://coremltools.readme.io/docs) to perform the conversion from PyTorch or TensorFlow to Core ML.
 
 The `exporters.coreml` package enables you to convert model checkpoints to a Core ML model by leveraging configuration objects. These configuration objects come ready-made for a number of model architectures, and are designed to be easily extendable to other architectures.
 
@@ -51,7 +59,7 @@ Ready-made configurations include the following architectures:
 - Vision Transformer (ViT)
 - YOLOS
 
-TODO: automatically generate this list
+<!-- TODO: automatically generate this list -->
 
 The Core ML exporter can be used from Linux but macOS is recommended.
 
@@ -364,8 +372,6 @@ mlmodel.save("ViT.mlpackage")
 
 Note: If the configuration object used returns `True` from `use_legacy_format`, the model can be saved as `ModelName.mlmodel` instead of `.mlpackage`.
 
-The [Hugging Face Hub](https://huggingface.co) can also host your Core ML models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
-
 #### Validating the model outputs
 
 The final step is to validate that the outputs from the base and exported model agree within some absolute tolerance. You can use the `validate_model_outputs()` function provided by the `exporters.coreml` package as follows:
@@ -435,3 +441,34 @@ The following models are known to give errors when attempting conversion to Core
 - [UniSpeech](https://huggingface.co/docs/transformers/main/en/model_doc/unispeech). Missing op for `_weight_norm` (possible to work around), also same Core ML compiler error as DETR.
 - [Wav2Vec2](https://huggingface.co/docs/transformers/main/en/model_doc/wav2vec2), [HuBERT](https://huggingface.co/docs/transformers/main/en/model_doc/hubert), [SEW](https://huggingface.co/docs/transformers/main/en/model_doc/sew): Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
 - [WavLM](https://huggingface.co/docs/transformers/main/en/model_doc/wavlm). Missing ops for `_weight_norm`, `add_`, `full_like`.
+
+## TensorFlow Lite
+
+The `exporters.tflite` module uses the [TFLiteConverter](https://www.tensorflow.org/lite/convert/) package to perform the conversion from TensorFlow to TF Lite format.
+
+Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not supported.
+
+TODO: TFLite support is not implemented yet.
+
+## Pushing the model to the Hugging Face Hub
+
+The [Hugging Face Hub](https://huggingface.co) can also host your Core ML and TF Lite models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
+
+First log in to your Hugging Face account account with the following command:
+
+```bash
+huggingface-cli login
+```
+
+Once you are logged in, save the **mlpackage** to the Hub as follows:
+
+```python
+from huggingface_hub import Repository
+
+with Repository(
+        "<model name>", clone_from="https://huggingface.co/<user>/<model name>",
+        use_auth_token=True).commit(commit_message="add Core ML model"):
+    mlmodel.save("<model name>.mlpackage")
+```
+
+Make sure to replace `<model name>` with the name of the model and `<user>` with your Hugging Face username.
