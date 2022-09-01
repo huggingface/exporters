@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 if is_vision_available():
     from PIL import Image
 
+
 logger = logging.get_logger(__name__)
 
 

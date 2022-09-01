@@ -117,7 +117,8 @@ The Core ML exporter needs to make certain assumptions about the Transformers mo
 The unit tests attempt to convert all supported models, and verify that their output is close to that of the original models. This can be very slow! These tests require a Mac.
 
 ```
-RUN_SLOW=1 PYTHONPATH="." pytest exporters/tests/test_coreml.py --capture=sys -W ignore
+$ cd exporters
+$ RUN_SLOW=1 pytest tests/test_coreml.py --capture=sys -W ignore
 ```
 
 The `--capture=sys` and `-W ignore` arguments are used to suppress the coremltools progress bars and other messages.

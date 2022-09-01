@@ -30,9 +30,22 @@ Note: Keep in mind that Transformer models are usually quite large and are not a
 
 ## Installation
 
-TODO
+Clone this repo:
 
-requirements.txt
+```bash
+$ git clone https://github.com/huggingface/exporters.git
+```
+
+Install it as a Python package:
+
+```bash
+$ cd exporters
+$ pip install -e .
+```
+
+All done!
+
+Note: The Core ML exporter can be used from Linux but macOS is recommended.
 
 ## Core ML
 
@@ -60,8 +73,6 @@ Ready-made configurations include the following architectures:
 - YOLOS
 
 <!-- TODO: automatically generate this list -->
-
-The Core ML exporter can be used from Linux but macOS is recommended.
 
 ### Exporting a model to Core ML
 
@@ -367,14 +378,24 @@ mlmodel.version = "1.0"
 Finally, save the model. You can open the resulting **mlpackage** file in Xcode and examine it there.
 
 ```python
-mlmodel.save("ViT.mlpackage")
+mlmodel.save("DistilBert.mlpackage")
 ```
 
 Note: If the configuration object used returns `True` from `use_legacy_format`, the model can be saved as `ModelName.mlmodel` instead of `.mlpackage`.
 
 #### Validating the model outputs
 
-The final step is to validate that the outputs from the base and exported model agree within some absolute tolerance. You can use the `validate_model_outputs()` function provided by the `exporters.coreml` package as follows:
+The final step is to validate that the outputs from the base and exported model agree within some absolute tolerance. You can use the `validate_model_outputs()` function provided by the `exporters.coreml` package as follows.
+
+First enable logging:
+
+```python
+from transformers.utils import logging
+logger = logging.get_logger("exporters.coreml")
+logger.setLevel(logging.INFO)
+```
+
+Then validate the model:
 
 ```python
 from exporters.coreml import validate_model_outputs

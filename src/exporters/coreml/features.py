@@ -16,10 +16,6 @@
 from functools import partial, reduce
 from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple, Type, Union
 
-# TODO: temporary hack
-import exporters
-#import transformers
-
 from transformers import PretrainedConfig, is_tf_available, is_torch_available
 from transformers.utils import logging
 from .config import CoreMLConfig
@@ -82,12 +78,10 @@ def supported_features_mapping(
     if coreml_config_cls is None:
         raise ValueError("A CoreMLConfig class must be provided")
 
-    # TODO: temporary hack
     import exporters.coreml.models
     config_cls = exporters.coreml
-    #config_cls = transformers
     for attr_name in coreml_config_cls.split("."):
-        if not hasattr(config_cls, attr_name): continue  #TODO: temporary hack
+        if not hasattr(config_cls, attr_name): continue  # hack!
         config_cls = getattr(config_cls, attr_name)
     mapping = {}
     for feature in supported_features:
