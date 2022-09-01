@@ -25,7 +25,7 @@ from .config import CoreMLConfig
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
-print("val logger", logger)
+
 
 def softmax(x, axis=-1):
     maxes = np.max(x, axis=axis, keepdims=True)
