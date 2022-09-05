@@ -19,6 +19,8 @@ from pathlib import Path
 from coremltools import ComputeUnit
 from coremltools.models.utils import _is_macos, _macos_version
 
+import huggingface_hub
+import transformers
 from transformers.models.auto import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
 from transformers.onnx.utils import get_preprocessor
 from transformers.utils import logging
@@ -62,6 +64,18 @@ def main():
 
     args = parser.parse_args()
 
+    model_class = None
+    if args.feature == "default":
+        model_info = huggingface_hub.model_info(args.model)
+        if model_info.transformersInfo is not None and model_info.transformersInfo["auto_model"] is not None:
+            model_class = transformers.__getattr__(model_info.transformersInfo["auto_model"])
+
+            # quick n dirty but shouldn't actually need this if we modify downstream code:
+            if model_info.transformersInfo["auto_model"] == "AutoModelForSequenceClassification":
+                args.feature = "sequence-classification"
+            if model_info.transformersInfo["auto_model"] == "AutoModelForImageClassification":
+                args.feature = "image-classification"
+
     if (not args.output.is_file()) and (args.output.suffix not in [".mlpackage", ".mlmodel"]):
         args.output = args.output.joinpath("Model.mlpackage")
     if not args.output.parent.exists():
@@ -80,9 +94,13 @@ def main():
         raise ValueError(f"Unknown preprocessor type '{args.preprocessor}'")
 
     # Allocate the model
-    model = FeaturesManager.get_model_from_feature(
-        args.feature, args.model, framework=args.framework, #cache_dir=args.cache_dir
-    )
+    if model_class is not None:
+        model = model_class.from_pretrained(args.model, torchscript=True)
+    else:
+        model = FeaturesManager.get_model_from_feature(
+            args.feature, args.model, framework=args.framework, #cache_dir=args.cache_dir
+        )
+
     model_kind, model_coreml_config = FeaturesManager.check_supported_model_or_raise(model, feature=args.feature)
     coreml_config = model_coreml_config(model.config)
 
