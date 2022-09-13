@@ -25,7 +25,12 @@ class BeitCoreMLConfig(CoreMLVisionConfig):
 
 
 class BertCoreMLConfig(CoreMLTextConfig):
-    pass
+    @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        input_descs = super().inputs
+        # TODO: BERT gives conversion error with flexible input shape.
+        input_descs["input_ids"].sequence_length = 128
+        return input_descs
 
 
 class ConvNextCoreMLConfig(CoreMLVisionConfig):
@@ -84,7 +89,7 @@ class CvtCoreMLConfig(CoreMLVisionConfig):
         return 0.01
 
 
-class DistilBertCoreMLConfig(BertCoreMLConfig):
+class DistilBertCoreMLConfig(CoreMLTextConfig):
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         if self.task == "multiple-choice":
@@ -95,7 +100,7 @@ class DistilBertCoreMLConfig(BertCoreMLConfig):
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=128,
+                            sequence_length=(1, 128),
                         )
                     ),
                     (

@@ -52,15 +52,16 @@ class InputDescription:
             input name in the original Transformers model.
         description (`str`, *optional*, defaults to empty string):
             Input description in the Core ML Model.
-        sequence_length (`int`, *optional*, defaults to `None`):
-            Sequence length for text inputs. In the exported model, the sequence length will be
-            a fixed size, giving the input tensor the shape `(batch_size, sequence_length)`.
+        sequence_length (`int` or tuple, *optional*, defaults to `None`):
+            Sequence length for text inputs. If this is a single value, the sequence length will be a fixed size
+            in the exported model, giving the input tensor the shape `(batch_size, sequence_length)`.
+            If this is a tuple `(min, max)`, the sequence length is allowed to vary between those two sizes.
         color_layout (`str`, *optional*, defaults to `None`):
             Channel ordering for image inputs. Either `"RGB"` or `"BGR"`.
     """
     name: str
     description: str = ""
-    sequence_length: Optional[int] = None
+    sequence_length: Optional[Union[int, Tuple[int, int]]] = None
     color_layout: Optional[str] = None
 
 
@@ -117,7 +118,7 @@ class CoreMLConfig(ABC):
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=128,
+                            sequence_length=(1, 128),
                         )
                     ),
                     (
@@ -141,7 +142,7 @@ class CoreMLConfig(ABC):
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=128,
+                            sequence_length=(1, 128),
                         )
                     ),
                     (
@@ -511,7 +512,14 @@ class CoreMLConfig(ABC):
 
         if self.modality == "text" and isinstance(preprocessor, PreTrainedTokenizerBase):
             input_desc = input_descs["input_ids"]
-            sequence_length = input_desc.sequence_length or 64
+
+            # the dummy input will always use the maximum sequence length
+            if input_desc.sequence_length is None:
+                sequence_length = 64
+            elif isinstance(input_desc.sequence_length, tuple):
+                sequence_length = input_desc.sequence_length[-1]
+            else:
+                sequence_length = input_desc.sequence_length
 
             if self.task == "multiple-choice":
                 shape = (1, self._config.num_labels, sequence_length)
@@ -553,6 +561,30 @@ class CoreMLConfig(ABC):
                     dummy_inputs[key] = (torch.tensor(ref_value), coreml_value)
 
         return dummy_inputs
+
+    def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
+        """
+        Determines which outputs require flexible shapes and on which axes.
+
+        Flexible output shapes are used when `sequence_length` on the model input is a range of
+        allowed lengths.
+        """
+        output_shapes = {}
+
+        # Only tasks that output a sequence need a flexible output shape.
+        if self.task in ["default", "masked-lm", "question-answering", "token-classification"]:
+            input_descs = self.inputs
+            output_descs = self.outputs
+
+            # If this model has flexible input shapes, it also needs flexible output shapes.
+            if "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
+                min_length, max_length = input_descs["input_ids"].sequence_length
+
+                for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
+                    if key in output_descs:
+                        output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
+
+        return output_shapes
 
 
 class CoreMLTextConfig(CoreMLConfig):

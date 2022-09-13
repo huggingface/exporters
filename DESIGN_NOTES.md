@@ -82,9 +82,13 @@ The following are not supported yet but would be useful to add:
 
 - `-with-past` versions of the tasks. This will make models harder to use, since the user will have to keep track of many additional tensors, but it does make inference much faster on sequences.
 
-- Flexible input sizes. Core ML models typically work with fixed input dimensions, but it also supports flexible image sizes and tensor shapes.
+- Flexible input sizes. Core ML models typically work with fixed input dimensions, but it also supports flexible image sizes and tensor shapes. The exporter currently supports flexible sequence lengths, but not image sizes.
+
+    - Note: Certain models, notably BERT, currently give conversion errors with a flexible sequence length. This appears to be an issue with coremltools.
 
 - More quantization options. coremltools 6 adds new quantization options for ML Program models, plus options for sparsifying weights.
+
+- `validate_model_outputs`: If the model supports a flexible input sequence length, run the test three times: once with the maximum length (that's what happens now), once with the minimum length, and once with a length in between (possibly randomly chosen).
 
 There are certain models that cannot be converted because of the way they are structured, or due to limitations and bugs in coremltools. Sometimes these can be fixed by making changes to the Transformers code, by implementing missing ops, or by filing bugs against coremltools. Trying to get as many Transformers models to export without issues is a work in progress.
 

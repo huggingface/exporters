@@ -285,7 +285,7 @@ config = MyCoreMLConfig(model.config, "semantic-segmentation")
 
 Here you can also change the name of the output from `classLabels` to something else, or fill in the output description ("Classification scores for each pixel").
 
-It is also possible to change the properties of the model inputs. For example, for text models the default sequence length is 128 tokens. To change the input sequence length on a DistilBERT model, you could override the config object as follows:
+It is also possible to change the properties of the model inputs. For example, for text models the default sequence length is between 1 and 128 tokens. To set the input sequence length on a DistilBERT model to a fixed length of 32 tokens, you could override the config object as follows:
 
 ```python
 from collections import OrderedDict

@@ -39,6 +39,22 @@ class CoreMLConfigTestCase(TestCase):
             config = CoreMLConfig(None, task="unknown-task", modality="vision")
             _ = config.inputs
 
+    def test_sequence_length(self):
+        config = CoreMLConfig(None, task="default", modality="text")
+        flexible_outputs = config.get_flexible_outputs()
+        self.assertEqual(len(flexible_outputs), 1)
+        self.assertIn("last_hidden_state", flexible_outputs)
+
+        flexible_output = flexible_outputs["last_hidden_state"]
+        self.assertEqual(len(flexible_output), 1)
+        self.assertEqual(flexible_output[0]["axis"], 1)
+        self.assertEqual(flexible_output[0]["min"], 1)
+        self.assertEqual(flexible_output[0]["max"], 128)
+
+        config = CoreMLConfig(None, task="sequence-classification", modality="text")
+        flexible_outputs = config.get_flexible_outputs()
+        self.assertTrue(len(flexible_outputs) == 0)
+
 
 PYTORCH_EXPORT_MODELS = {
     ("beit", "microsoft/beit-base-patch16-224"),
@@ -46,7 +62,6 @@ PYTORCH_EXPORT_MODELS = {
     ("convnext", "facebook/convnext-tiny-224"),
     ("cvt", "microsoft/cvt-21-384-22k"),
     ("distilbert", "distilbert-base-cased"),
-    ("gpt2", "distilgpt2"),
     ("levit", "facebook/levit-128S"),
     ("mobilebert", "google/mobilebert-uncased"),
     ("mobilevit", "apple/mobilevit-small"),
@@ -56,7 +71,9 @@ PYTORCH_EXPORT_MODELS = {
     ("yolos", "hustvl/yolos-tiny"),
 }
 
-PYTORCH_EXPORT_WITH_PAST_MODELS = {}
+PYTORCH_EXPORT_WITH_PAST_MODELS = {
+    #TODO ("gpt2", "distilgpt2"),
+}
 
 PYTORCH_EXPORT_SEQ2SEQ_WITH_PAST_MODELS = {}
 
@@ -116,7 +133,7 @@ class CoreMLExportTestCase(TestCase):
                 preprocessor,
                 model,
                 mlmodel,
-                coreml_config.atol_for_validation
+                coreml_config.atol_for_validation,
             )
         except (RuntimeError, ValueError) as e:
             self.fail(f"{name}, {feature} -> {e}")

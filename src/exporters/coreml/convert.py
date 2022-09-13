@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, List, Union, Mapping
 
 import coremltools as ct
 from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_OPS_REGISTRY
+from coremltools.models.neural_network import flexible_shape_utils
 
 import numpy as np
 
@@ -106,14 +107,25 @@ def get_input_types(
 
     if config.modality == "text":
         input_desc = input_descs["input_ids"]
+
+        default_shape = dummy_inputs["input_ids"][0].shape
+        shape = list(default_shape)
+
+        # support flexible input shape
+        if isinstance(input_desc.sequence_length, tuple):
+            min_length, max_length = input_desc.sequence_length
+            shape[-1] = ct.RangeDim(min_length, max_length)
+
+        shape = ct.Shape(shape, default=default_shape)
+
         input_types.append(
-            ct.TensorType(name=input_desc.name, shape=dummy_inputs["input_ids"][0].shape, dtype=np.int32)
+            ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
         )
 
         if "attention_mask" in input_descs:
             input_desc = input_descs["attention_mask"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs["attention_mask"][0].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
@@ -121,7 +133,7 @@ def get_input_types(
         if "token_type_ids" in input_descs:
             input_desc = input_descs["token_type_ids"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=dummy_inputs["token_type_ids"][0].shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping token_type_ids input")
@@ -360,14 +372,15 @@ def export_pytorch(
 
     spec = mlmodel._spec
 
-    for input_desc in config.inputs.values():
+    input_descs = config.inputs
+    output_descs = config.outputs
+
+    for input_desc in input_descs.values():
         mlmodel.input_description[input_desc.name] = input_desc.description
 
     user_defined_metadata = {}
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
-
-    output_descs = config.outputs
 
     if config.is_classifier:
         output_desc = output_descs["logits"]
@@ -380,12 +393,27 @@ def export_pytorch(
         spec.description.predictedFeatureName = output_desc.name
         mlmodel.output_description[output_desc.name] = output_desc.description
     else:
-        for i, output_desc in enumerate(output_descs.values()):
+        flexible_outputs = config.get_flexible_outputs()
+
+        for i, (key, output_desc) in enumerate(output_descs.items()):
             if i < len(example_output):
                 output = spec.description.output[i]
                 ct.utils.rename_feature(spec, output.name, output_desc.name)
                 mlmodel.output_description[output_desc.name] = output_desc.description
                 set_multiarray_shape(output, example_output[i].shape)
+
+                # Set flexible output shape if necessary.
+                if key in flexible_outputs:
+                    lower_bounds = list(example_output[i].shape)
+                    upper_bounds = list(example_output[i].shape)
+
+                    for flexible_output in flexible_outputs[key]:
+                        lower_bounds[flexible_output["axis"]] = flexible_output["min"]
+                        upper_bounds[flexible_output["axis"]] = flexible_output["max"]
+
+                    flexible_shape_utils.set_multiarray_ndshape_range(
+                        spec, output_desc.name, lower_bounds, upper_bounds
+                    )
 
         if config.task in ["object-detection", "semantic-segmentation", "token-classification"]:
             labels = get_labels_as_list(model)
