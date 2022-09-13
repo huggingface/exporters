@@ -118,6 +118,13 @@ class DistilBertCoreMLConfig(CoreMLTextConfig):
 
 class GPT2CoreMLConfig(CoreMLTextConfig):
     @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        input_descs = super().inputs
+        # TODO: coremltools blows up and uses infinite RAM with flexible input shape
+        input_descs["input_ids"].sequence_length = 128
+        return input_descs
+
+    @property
     def use_legacy_format(self) -> bool:
         return True
 
