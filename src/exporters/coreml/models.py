@@ -39,6 +39,10 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
         return 1e-3
 
 
+class CTRLCoreMLConfig(CoreMLTextConfig):
+    pass
+
+
 class CvtCoreMLConfig(CoreMLVisionConfig):
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
@@ -127,6 +131,15 @@ class GPT2CoreMLConfig(CoreMLTextConfig):
     @property
     def use_legacy_format(self) -> bool:
         return True
+
+
+class GPTNeoCoreMLConfig(CoreMLTextConfig):
+    @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        input_descs = super().inputs
+        # TODO: coremltools blows up and uses infinite RAM with flexible input shape
+        input_descs["input_ids"].sequence_length = 128
+        return input_descs
 
 
 class LevitCoreMLConfig(CoreMLVisionConfig):

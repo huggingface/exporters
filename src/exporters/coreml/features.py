@@ -30,7 +30,7 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 if is_torch_available():
     from transformers.models.auto import (
         AutoModel,
-        # AutoModelForCausalLM,
+        AutoModelForCausalLM,
         AutoModelForImageClassification,
         # AutoModelForImageSegmentation,
         AutoModelForMaskedImageModeling,
@@ -100,7 +100,7 @@ class FeaturesManager:
     if is_torch_available():
         _TASKS_TO_AUTOMODELS = {
             "default": AutoModel,
-            # "causal-lm": AutoModelForCausalLM,
+            "causal-lm": AutoModelForCausalLM,
             "image-classification": AutoModelForImageClassification,
             # "image-segmentation": AutoModelForImageSegmentation,
             "masked-im": AutoModelForMaskedImageModeling,
@@ -137,7 +137,7 @@ class FeaturesManager:
         "bert": supported_features_mapping(
             "default",
             "masked-lm",
-            #"causal-lm",
+            "causal-lm",
             "multiple-choice",
             "question-answering",
             "sequence-classification",
@@ -148,6 +148,14 @@ class FeaturesManager:
             "default",
             "image-classification",
             coreml_config_cls="models.convnext.ConvNextCoreMLConfig",
+        ),
+        "ctrl": supported_features_mapping(
+            "default",
+            #"default-with-past",
+            "causal-lm",
+            # "causal-lm-with-past",
+            "sequence-classification",
+            coreml_config_cls="models.ctrl.CTRLCoreMLConfig",
         ),
         "cvt": supported_features_mapping(
             "default",
@@ -166,11 +174,19 @@ class FeaturesManager:
         "gpt2": supported_features_mapping(
             "default",
             #"default-with-past",
-            #"causal-lm",
+            "causal-lm",
             #"causal-lm-with-past",
             "sequence-classification",
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
+        ),
+        "gpt-neo": supported_features_mapping(
+            "default",
+            #"default-with-past",
+            "causal-lm",
+            #"causal-lm-with-past",
+            "sequence-classification",
+            coreml_config_cls="models.gpt_neo.GPTNeoCoreMLConfig",
         ),
         "levit": supported_features_mapping(
             "default", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"

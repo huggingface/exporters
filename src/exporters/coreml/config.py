@@ -106,6 +106,7 @@ class CoreMLConfig(ABC):
         """
         if self.modality == "text" and self.task in [
             "default",
+            "causal-lm",
             "masked-lm",
             "question-answering",
             "sequence-classification",
@@ -287,7 +288,7 @@ class CoreMLConfig(ABC):
                 ]
             )
 
-        if self.task in ["masked-lm", "token-classification"]:
+        if self.task in ["causal-lm", "masked-lm", "token-classification"]:
             return OrderedDict(
                 [
                     (
@@ -572,7 +573,7 @@ class CoreMLConfig(ABC):
         output_shapes = {}
 
         # Only tasks that output a sequence need a flexible output shape.
-        if self.task in ["default", "masked-lm", "question-answering", "token-classification"]:
+        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "token-classification"]:
             input_descs = self.inputs
             output_descs = self.outputs
 

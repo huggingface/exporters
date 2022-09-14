@@ -449,12 +449,16 @@ The Core ML exporter writes models in the **mlpackage** format. Unfortunately, f
 
 Known models that need to be exported with `use_legacy_format=True` are: GPT2, DistilGPT2.
 
+Using flexible input sequence length with GPT2 or GPT-Neo causes the converter to be extremely slow and allocate over 200 GB of RAM. This is clearly a bug in coremltools or the Core ML framework, as the allocated memory is never used (the computer won't start swapping). After many minutes, the conversion does succeed, but the model may not be 100% correct. Loading the model afterwards takes a very long time and makes similar memory allocations. Likewise for making predictions. While theoretically the conversion succeeds (if you have enough patience), the model is not really usable like this.
+
 #### Unsupported models
 
 The following models are known to give errors when attempting conversion to Core ML format:
 
+- [BLOOM](https://huggingface.co/docs/transformers/main/en/model_doc/bloom). Conversion error on a slicing operation.
 - [DETR](https://huggingface.co/docs/transformers/main/model_doc/detr). The conversion completes without errors but the Core ML compiler cannot load the model.
 - [Data2VecAudio](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec). Same issue as DETR.
+- [GPT-Neo](https://huggingface.co/docs/transformers/main/en/model_doc/gpt_neo) gives no errors during conversion but predicts wrong results, or NaN when `use_legacy_format=True`.
 - [GroupViT](https://huggingface.co/docs/transformers/main/model_doc/groupvit). Conversion issue with `scatter_along_axis` operation. Did not investigate in detail yet.
 - [Speech2Text](https://huggingface.co/docs/transformers/main/en/model_doc/speech_to_text). The "glu" op is not supported by coremltools. Should be possible to solve by defining a `@register_torch_op` function.
 - [Swin Transformer](https://huggingface.co/docs/transformers/main/model_doc/swin). The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.

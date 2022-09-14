@@ -229,6 +229,7 @@ if is_torch_available():
                 return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
 
             if self.config.task in [
+                "causal-lm",
                 "masked-lm",
                 "multiple-choice",
                 "next-sentence-prediction",
