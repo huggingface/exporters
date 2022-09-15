@@ -15,7 +15,13 @@
 
 from collections import OrderedDict
 
-from .config import CoreMLTextConfig, CoreMLVisionConfig, InputDescription, OutputDescription
+from .config import (
+    CoreMLTextConfig,
+    CoreMLVisionConfig,
+    CoreMLConfigWithPast,
+    InputDescription,
+    OutputDescription,
+)
 
 
 class BeitCoreMLConfig(CoreMLVisionConfig):
@@ -39,8 +45,10 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
         return 1e-3
 
 
-class CTRLCoreMLConfig(CoreMLTextConfig):
-    pass
+class CTRLCoreMLConfig(CoreMLConfigWithPast):
+    @property
+    def num_layers(self) -> int:
+        return self._config.n_layer
 
 
 class CvtCoreMLConfig(CoreMLVisionConfig):

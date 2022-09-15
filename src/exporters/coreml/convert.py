@@ -116,7 +116,14 @@ def get_input_types(
             min_length, max_length = input_desc.sequence_length
             shape[-1] = ct.RangeDim(min_length, max_length)
 
+        if getattr(config, "use_past", False):
+            # TODO: don't hardcode this!
+            attention_shape = (1, 258)
+        else:
+            attention_shape = shape
+
         shape = ct.Shape(shape, default=default_shape)
+        attention_shape = ct.Shape(attention_shape)
 
         input_types.append(
             ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
@@ -125,7 +132,7 @@ def get_input_types(
         if "attention_mask" in input_descs:
             input_desc = input_descs["attention_mask"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=attention_shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
@@ -137,6 +144,13 @@ def get_input_types(
             )
         else:
             logger.info("Skipping token_type_ids input")
+
+        if getattr(config, "use_past", False):
+            for i in range(config.num_layers):
+                name = f"past_key_values_{i}_key"
+                input_types.append(ct.TensorType(name=name, shape=dummy_inputs[name][1].shape))
+                name = f"past_key_values_{i}_value"
+                input_types.append(ct.TensorType(name=name, shape=dummy_inputs[name][1].shape))
 
     if config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
@@ -193,8 +207,9 @@ if is_torch_available():
             self.model = model.eval()
             self.config = config
 
-        def forward(self, inputs, extra_input1=None, extra_input2=None):
-            output_descs = self.config.outputs
+        def forward(self, *all_inputs):
+            remaining = len(all_inputs)
+            inputs = all_inputs[0]
 
             # Core ML's image preprocessing does not allow a different scaling
             # factor for each color channel, so do this manually.
@@ -205,16 +220,30 @@ if is_torch_available():
             model_kwargs = {
                 "return_dict": False,
             }
+
+            # Convert the past_key_values_x_key/value inputs back into tuples.
+            if getattr(self.config, "use_past", False):
+                remaining -= self.config.num_layers * 2
+                past_key_values = []
+                for i in range(self.config.num_layers):
+                    past_key_values.append((
+                        all_inputs[remaining + i*2],
+                        all_inputs[remaining + i*2 + 1],
+                    ))
+                model_kwargs["past_key_values"] = past_key_values
+
             if self.config.modality == "text":
-                if extra_input1 is not None:
-                    model_kwargs["attention_mask"] = extra_input1
-                if extra_input2 is not None:
-                    model_kwargs["token_type_ids"] = extra_input2
+                if remaining >= 2:
+                    model_kwargs["attention_mask"] = all_inputs[1]
+                if remaining >= 3:
+                    model_kwargs["token_type_ids"] = all_inputs[2]
             elif self.config.modality == "vision":
                 if self.config.task == "masked-im":
-                    model_kwargs["bool_masked_pos"] = extra_input1
+                    model_kwargs["bool_masked_pos"] = all_inputs[1]
 
             outputs = self.model(inputs, **model_kwargs)
+
+            output_descs = self.config.outputs
 
             if self.config.task == "image-classification":
                 output_desc = output_descs["logits"]

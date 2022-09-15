@@ -151,9 +151,9 @@ class FeaturesManager:
         ),
         "ctrl": supported_features_mapping(
             "default",
-            #"default-with-past",
+            "default-with-past",
             "causal-lm",
-            # "causal-lm-with-past",
+            "causal-lm-with-past",
             "sequence-classification",
             coreml_config_cls="models.ctrl.CTRLCoreMLConfig",
         ),

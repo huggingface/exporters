@@ -14,7 +14,6 @@
 # limitations under the License.
 
 import dataclasses
-from abc import ABC
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable, List, Mapping, Optional, Tuple, Union
 
@@ -90,7 +89,7 @@ class OutputDescription:
     do_argmax: Optional[bool] = None
 
 
-class CoreMLConfig(ABC):
+class CoreMLConfig():
     """
     Base class for Core ML exportable model describing metadata on how to export the model through the Core ML format.
     """
@@ -555,6 +554,9 @@ class CoreMLConfig(ABC):
                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
             )
 
+        return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
+
+    def _convert_dummy_inputs_to_framework(self, dummy_inputs, framework):
         if framework == TensorType.PYTORCH and is_torch_available():
             import torch
             for key, (ref_value, coreml_value) in dummy_inputs.items():
@@ -632,3 +634,129 @@ class CoreMLVisionConfig(CoreMLConfig):
             `CoreMLVisionConfig` for this model
         """
         return cls(config, task=task)
+
+
+class CoreMLConfigWithPast(CoreMLTextConfig):
+    def __init__(
+        self,
+        config: "PretrainedConfig",
+        task: str = "default",
+        use_past: bool = False,
+    ):
+        super().__init__(config, task=task)
+        self.use_past = use_past
+
+    @classmethod
+    def with_past(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfigWithPast":
+        """
+        Instantiate a `CoreMLConfig` with `use_past` attribute set to True
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
+
+        Returns:
+            `CoreMLVisionConfig` for this model with `.use_past = True`
+        """
+        return cls(config, task=task, use_past=True)
+
+    @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        common_inputs = super().inputs
+        if self.use_past:
+            self.fill_inputs_with_past_key_values_(common_inputs)
+        return common_inputs
+
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        common_outputs = super().outputs
+        if self.use_past:
+            self.fill_outputs_with_past_key_values_(common_outputs)
+        return common_outputs
+
+    @property
+    def values_override(self) -> Optional[Mapping[str, Any]]:
+        if hasattr(self._config, "use_cache"):
+            return {"use_cache": self.use_past}
+        return None
+
+    @property
+    def num_layers(self) -> int:
+        """
+        The number of layers retrieved from the model config. Override this for model configs where the
+        number of layers attribute is not called `num_layers`.
+        """
+        if not hasattr(self._config, "num_layers"):
+            raise AttributeError(
+                "could not find the number of layers attribute in the model configuration, override the num_layers"
+                " property of the model CoreMLConfig to solve this"
+            )
+        return self._config.num_layers
+
+    @property
+    def num_attention_heads(self) -> int:
+        """
+        The number of attention heads retrieved from the model config. Override this for model configs where
+        the number of attention heads attribute is not called `num_attention_heads`.
+        """
+        if not hasattr(self._config, "num_attention_heads"):
+            raise AttributeError(
+                "could not find the number of attention heads attribute in the model configuration, override the"
+                " num_attention_heads property of the model CoreMLConfig to solve this"
+            )
+        return self._config.num_attention_heads
+
+    def generate_dummy_inputs(
+        self,
+        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
+        framework: Optional[TensorType] = None,
+    ) -> Mapping[str, Tuple[Any, Any]]:
+        dummy_inputs = super().generate_dummy_inputs(preprocessor, framework)
+
+        if self.use_past:
+            batch, seqlen = dummy_inputs["input_ids"][0].shape
+
+            # Not using the same length for past_key_values
+            past_key_values_length = seqlen + 2
+            shape = (
+                batch,
+                self.num_attention_heads,
+                past_key_values_length,
+                self._config.hidden_size // self.num_attention_heads,
+            )
+
+            if "attention_mask" in dummy_inputs:
+                attention_mask = np.ones((batch, seqlen + past_key_values_length), dtype=np.int64)
+                dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+
+            for i in range(self.num_layers):
+                dummy_inputs[f"past_key_values_{i}_key"] = (
+                    np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
+                )
+                dummy_inputs[f"past_key_values_{i}_value"] = (
+                    np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
+                )
+
+        return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
+
+    def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
+        name = "past_key_values"
+        for i in range(self.num_layers):
+            inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key")
+            inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value")
+
+    def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
+        name = "present"
+        for i in range(self.num_layers):
+            outputs[f"{name}_{i}_key"] = OutputDescription(f"{name}_{i}_key")
+            outputs[f"{name}_{i}_value"] = OutputDescription(f"{name}_{i}_value")
+
+    def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
+        outputs = super().get_flexible_outputs()
+
+        if self.use_past:
+            for i in range(self.num_layers):
+                outputs[f"present_{i}_key"] = [{ "axis": 2, "min": 0, "max": -1 }]
+                outputs[f"present_{i}_value"] = [{ "axis": 2, "min": 0, "max": -1 }]
+
+        return outputs
