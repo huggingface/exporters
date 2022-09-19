@@ -125,13 +125,13 @@ def validate_model_outputs(
 
         ref_value = reference_model.config.id2label[np.argmax(ref_logits, axis=-1)[0]]
         if coreml_value != ref_value:
-            logger.info(f"\t\t-[x] predicted class {coreml_value} doesn't match {ref_value}")
+            logger.info(f"\t\t-[x] predicted class '{coreml_value}' doesn't match '{ref_value}'")
             raise ValueError(
                 "Predicted class doesn't match between reference model and Core ML exported model: "
                 f"Got {ref_value} (reference) and {coreml_value} (Core ML)"
             )
         else:
-            logger.info(f"\t\t-[✓] predicted class {coreml_value} matches {ref_value}")
+            logger.info(f"\t\t-[✓] predicted class '{coreml_value}' matches '{ref_value}'")
 
         probs_name = spec.description.predictedProbabilitiesName
         coreml_value = coreml_outputs[probs_name]
