@@ -26,6 +26,12 @@ from .config import (
 
 class BeitCoreMLConfig(CoreMLVisionConfig):
     @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+
+    @property
     def atol_for_validation(self) -> float:
         return 0.01
 
@@ -38,8 +44,20 @@ class BertCoreMLConfig(CoreMLTextConfig):
         input_descs["input_ids"].sequence_length = 128
         return input_descs
 
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+
 
 class ConvNextCoreMLConfig(CoreMLVisionConfig):
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+
     @property
     def atol_for_validation(self) -> float:
         return 1e-3
@@ -151,6 +169,12 @@ class GPTNeoCoreMLConfig(CoreMLTextConfig):
 
 
 class LevitCoreMLConfig(CoreMLVisionConfig):
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+
     def patch_pytorch_ops(self):
         def reshape_as(context, node):
             from coremltools.converters.mil import Builder as mb
@@ -169,7 +193,11 @@ class LevitCoreMLConfig(CoreMLVisionConfig):
 
 
 class MobileBertCoreMLConfig(CoreMLTextConfig):
-    pass
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
 
 
 class MobileViTCoreMLConfig(CoreMLVisionConfig):
@@ -179,17 +207,31 @@ class MobileViTCoreMLConfig(CoreMLVisionConfig):
         input_descs["pixel_values"].color_layout = "BGR"
         return input_descs
 
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+
 
 class SegformerCoreMLConfig(CoreMLVisionConfig):
     pass
 
 
 class SqueezeBertCoreMLConfig(CoreMLTextConfig):
-    pass
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
 
 
 class ViTCoreMLConfig(CoreMLVisionConfig):
-    pass
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
 
 
 class YolosCoreMLConfig(CoreMLVisionConfig):

@@ -570,6 +570,18 @@ class CoreMLConfig():
 
         return output_shapes
 
+    def _add_pooler_output(self, output_descs):
+        if self.task == "default":
+            if self.modality == "vision":
+                description = "Last layer hidden-state after a pooling operation on the spatial dimensions"
+            else:
+                description = "Last layer hidden-state of the first token of the sequence"
+
+            output_descs["pooler_output"] = OutputDescription(
+                "pooler_output",
+                description
+            )
+        return output_descs
 
 class CoreMLTextConfig(CoreMLConfig):
     """
