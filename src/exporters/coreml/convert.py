@@ -218,7 +218,8 @@ if is_torch_available():
                 "return_dict": False,
             }
 
-            # Convert the past_key_values_x_key/value inputs back into tuples.
+            # Convert the past_key_values_x_key/value inputs back into tuples,
+            # as that is what the original model expects.
             if getattr(self.config, "use_past", False):
                 remaining -= self.config.num_layers * 2
                 past_key_values = []
@@ -240,7 +241,7 @@ if is_torch_available():
 
             outputs = self.model(inputs, **model_kwargs)
 
-            # Unpack the output `past_key_values` into a tuple.
+            # Unpack the output `past_key_values` into a single tuple.
             presents = ()
             if getattr(self.config, "use_past", False):
                 past_key_values = outputs[-1]

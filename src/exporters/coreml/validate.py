@@ -68,15 +68,36 @@ def validate_model_outputs(
     dummy_inputs = config.generate_dummy_inputs(preprocessor, framework)
 
     reference_model_inputs = {}
+    past_key_values = []
     coreml_inputs = {}
-    for name, (ref_value, coreml_value) in dummy_inputs.items():
-        reference_model_inputs[name] = ref_value
+
+    # Put the dummy inputs into Core ML and reference model input dictionaries.
+    # The separate past_key_values inputs are combined into a tuple of tuples.
+    for name in input_descs.keys():
+        ref_value, coreml_value = dummy_inputs[name]
+        if name.startswith("past_key_values_"):
+            if name.endswith("_key"):
+                past_key_values.append((ref_value,))
+            else:
+                past_key_values[-1] += (ref_value,)
+        else:
+            reference_model_inputs[name] = ref_value
         coreml_inputs[input_descs[name].name] = coreml_value
+
+    if len(past_key_values) > 0:
+        reference_model_inputs["past_key_values"] = past_key_values
 
     # Compute outputs from the reference model
     if is_torch_available() and issubclass(type(reference_model), PreTrainedModel):
         reference_model.to("cpu").eval()
     ref_outputs_dict = reference_model(**reference_model_inputs, return_dict=True)
+
+    # Unpack the past_key_values output into separate outputs, as that is also
+    # how the Core ML mdel does it.
+    if "past_key_values" in ref_outputs_dict:
+        for i in range(len(ref_outputs_dict["past_key_values"])):
+            ref_outputs_dict[f"present_{i}_key"] = ref_outputs_dict["past_key_values"][i][0]
+            ref_outputs_dict[f"present_{i}_value"] = ref_outputs_dict["past_key_values"][i][1]
 
     # Compute outputs from the Core ML model
     coreml_outputs = mlmodel.predict(coreml_inputs)
