@@ -60,6 +60,7 @@ Ready-made configurations include the following architectures:
 - BEiT
 - BERT
 - ConvNeXT
+- CTRL
 - CvT
 - DistilBERT
 - DistilGPT2
@@ -147,14 +148,13 @@ TODO: also TFAutoModel example
 Each ready-made configuration comes with a set of _features_ that enable you to export models for different types of topologies or tasks. As shown in the table below, each feature is associated with a different auto class:
 
 <!--
-| `causal-lm`, `causal-lm-with-past`   | `AutoModelForCausalLM`               |
-| `default`, `default-with-past`       | `AutoModel`                          |
 | `seq2seq-lm`, `seq2seq-lm-with-past` | `AutoModelForSeq2SeqLM`              |
 -->
 
 | Feature                              | Auto Class                           |
 | ------------------------------------ | ------------------------------------ |
-| `default`                            | `AutoModel`                          |
+| `default`, `default-with-past`       | `AutoModel`                          |
+| `causal-lm`, `causal-lm-with-past`   | `AutoModelForCausalLM`               |
 | `image-classification`               | `AutoModelForImageClassification`    |
 | `masked-im`                          | `AutoModelForMaskedImageModeling`    |
 | `masked-lm`                          | `AutoModelForMaskedLM`               |
@@ -196,15 +196,11 @@ All good, model saved at: exported/Model.mlpackage
 
 Notice that in this case, the exported model is a Core ML classifier, which predicts the highest scoring class name in addition to a dictionary of probabilities, instead of the `last_hidden_state` we saw with the `distilbert-base-uncased` checkpoint earlier. This is expected since the fine-tuned model has a sequence classification head.
 
-<!--
 <Tip>
 
-The features that have a `with-past` suffix (e.g. `causal-lm-with-past`)
-correspond to model topologies with precomputed hidden states (key and values
-in the attention blocks) that can be used for fast autoregressive decoding.
+The features that have a `with-past` suffix (e.g. `causal-lm-with-past`) correspond to model topologies with precomputed hidden states (key and values in the attention blocks) that can be used for fast autoregressive decoding.
 
 </Tip>
--->
 
 ### Configuring the export options
 
@@ -304,11 +300,7 @@ config = MyCoreMLConfig(model.config, "sequence-classification")
 
 To find out what input and output options are available for the model you're interested in, create its `CoreMLConfig` object and examine the `config.inputs` and `config.outputs` properties.
 
-Not all inputs or outputs are always required:
-
-- For text models, you may remove the `attention_mask` input. Without this input, the attention mask is always assumed to be filled with ones (no padding). However, if the task requires a `token_type_ids` input, there must also be an `attention_mask` input.
-
-- For the `default` task, the `pooler_output` may be removed.
+Not all inputs or outputs are always required: For text models, you may remove the `attention_mask` input. Without this input, the attention mask is always assumed to be filled with ones (no padding). However, if the task requires a `token_type_ids` input, there must also be an `attention_mask` input.
 
 Removing inputs and/or outputs is again accomplished by making a subclass of `CoreMLConfig` and overriding the `inputs` and `outputs` properties.
 
@@ -357,6 +349,8 @@ Additional options that can be passed into `export()`:
 
 - `quantize`: Use `"float32"` for no quantization (the default), `"float16"` to quantize the weights to 16-bit floats.
 - `compute_units`: Whether to optimize the model for CPU, GPU, and/or Neural Engine. Defaults to `coremltools.ComputeUnit.ALL`.
+
+To export the model with precomputed hidden states (key and values in the attention blocks) for fast autoregressive decoding, pass the argument `use_past=True` when creating the `CoreMLConfig` object.
 
 It is normal for the Core ML exporter to print out a lot of warning and information messages. In particular, you might see messages such as these:
 

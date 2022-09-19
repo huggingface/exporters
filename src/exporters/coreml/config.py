@@ -51,6 +51,8 @@ class InputDescription:
             input name in the original Transformers model.
         description (`str`, *optional*, defaults to empty string):
             Input description in the Core ML Model.
+        is_optional (`bool`, *optional*, defaults to `False`):
+            If true, this input may be omitted.
         sequence_length (`int` or tuple, *optional*, defaults to `None`):
             Sequence length for text inputs. If this is a single value, the sequence length will be a fixed size
             in the exported model, giving the input tensor the shape `(batch_size, sequence_length)`.
@@ -60,6 +62,7 @@ class InputDescription:
     """
     name: str
     description: str = ""
+    is_optional: bool = False
     sequence_length: Optional[Union[int, Tuple[int, int]]] = None
     color_layout: Optional[str] = None
 
@@ -207,7 +210,7 @@ class CoreMLConfig():
         """
         Ordered mapping of the outputs from the original model to the exported Core ML model.
         """
-        if self.modality == "text" and self.task == "default":
+        if self.task == "default":
             return OrderedDict(
                 [
                     (
@@ -215,33 +218,6 @@ class CoreMLConfig():
                         OutputDescription(
                             "last_hidden_state",
                             "Sequence of hidden-states at the output of the last layer of the model",
-                        )
-                    ),
-                    (
-                        "pooler_output",
-                        OutputDescription(
-                            "pooler_output",
-                            "Last layer hidden-state of the first token of the sequence",
-                        )
-                    ),
-                ]
-            )
-
-        if self.modality == "vision" and self.task == "default":
-            return OrderedDict(
-                [
-                    (
-                        "last_hidden_state",
-                        OutputDescription(
-                            "last_hidden_state",
-                            "Sequence of hidden-states at the output of the last layer of the model",
-                        )
-                    ),
-                    (
-                        "pooler_output",
-                        OutputDescription(
-                            "pooler_output",
-                            "Last layer hidden-state after a pooling operation on the spatial dimensions",
                         )
                     ),
                 ]
@@ -580,9 +556,14 @@ class CoreMLConfig():
             output_descs = self.outputs
 
             # If this model has flexible input shapes, it also needs flexible output shapes.
-            if "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
+            if getattr(self, "use_past", False):
+                min_length, max_length = 1, -1
+            elif "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
                 min_length, max_length = input_descs["input_ids"].sequence_length
+            else:
+                min_length, max_length = None, None
 
+            if min_length is not None:
                 for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
                     if key in output_descs:
                         output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
@@ -742,8 +723,8 @@ class CoreMLConfigWithPast(CoreMLTextConfig):
     def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
         name = "past_key_values"
         for i in range(self.num_layers):
-            inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key")
-            inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value")
+            inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
+            inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
 
     def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
         name = "present"
@@ -756,7 +737,7 @@ class CoreMLConfigWithPast(CoreMLTextConfig):
 
         if self.use_past:
             for i in range(self.num_layers):
-                outputs[f"present_{i}_key"] = [{ "axis": 2, "min": 0, "max": -1 }]
-                outputs[f"present_{i}_value"] = [{ "axis": 2, "min": 0, "max": -1 }]
+                outputs[f"present_{i}_key"] = [{ "axis": 2, "min": 1, "max": -1 }]
+                outputs[f"present_{i}_value"] = [{ "axis": 2, "min": 1, "max": -1 }]
 
         return outputs

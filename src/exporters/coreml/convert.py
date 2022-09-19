@@ -111,20 +111,15 @@ def get_input_types(
         default_shape = dummy_inputs["input_ids"][0].shape
         shape = list(default_shape)
 
-        # support flexible input shape
-        if isinstance(input_desc.sequence_length, tuple):
+        # Does the input shape need to be flexible?
+        if getattr(config, "use_past", False):
+            shape[-1] = ct.RangeDim()
+            default_shape = None
+        elif isinstance(input_desc.sequence_length, tuple):
             min_length, max_length = input_desc.sequence_length
             shape[-1] = ct.RangeDim(min_length, max_length)
 
-        if getattr(config, "use_past", False):
-            # TODO: don't hardcode this!
-            attention_shape = (1, 258)
-        else:
-            attention_shape = shape
-
         shape = ct.Shape(shape, default=default_shape)
-        attention_shape = ct.Shape(attention_shape)
-
         input_types.append(
             ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
         )
@@ -132,7 +127,7 @@ def get_input_types(
         if "attention_mask" in input_descs:
             input_desc = input_descs["attention_mask"]
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=attention_shape, dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
         else:
             logger.info("Skipping attention_mask input")
@@ -146,11 +141,13 @@ def get_input_types(
             logger.info("Skipping token_type_ids input")
 
         if getattr(config, "use_past", False):
+            shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
+            shape[2] = ct.RangeDim(0, -1)
+            shape = ct.Shape(shape)
+
             for i in range(config.num_layers):
-                name = f"past_key_values_{i}_key"
-                input_types.append(ct.TensorType(name=name, shape=dummy_inputs[name][1].shape))
-                name = f"past_key_values_{i}_value"
-                input_types.append(ct.TensorType(name=name, shape=dummy_inputs[name][1].shape))
+                input_types.append(ct.TensorType(name=f"past_key_values_{i}_key", shape=shape))
+                input_types.append(ct.TensorType(name=f"past_key_values_{i}_value", shape=shape))
 
     if config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
@@ -243,6 +240,14 @@ if is_torch_available():
 
             outputs = self.model(inputs, **model_kwargs)
 
+            # Unpack the output `past_key_values` into a tuple.
+            presents = ()
+            if getattr(self.config, "use_past", False):
+                past_key_values = outputs[-1]
+                for i in range(len(past_key_values)):
+                    for j in range(2):
+                        presents = presents + (past_key_values[i][j],)
+
             output_descs = self.config.outputs
 
             if self.config.task == "image-classification":
@@ -267,9 +272,11 @@ if is_torch_available():
             ]:
                 output_desc = output_descs["logits"]
                 if output_desc.do_softmax:
-                    return torch.nn.functional.softmax(outputs[0], dim=-1)
+                    prediction = torch.nn.functional.softmax(outputs[0], dim=-1)
                 else:
-                    return outputs[0]  # logits
+                    prediction = outputs[0]  # logits
+
+                return (prediction,) + presents
 
             if self.config.task == "object-detection":
                 return outputs[0], outputs[1]  # logits, pred_boxes
@@ -295,7 +302,9 @@ if is_torch_available():
                 return x
 
             if self.config.task == "default":
-                if len(output_descs) > 1 and len(outputs) > 1:
+                if getattr(self.config, "use_past", False):
+                    return (outputs[0],) + presents
+                elif len(output_descs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
                 else:
                     return outputs[0]  # last_hidden_state
@@ -405,8 +414,11 @@ def export_pytorch(
     input_descs = config.inputs
     output_descs = config.outputs
 
-    for input_desc in input_descs.values():
+    for (i, input_desc) in enumerate(input_descs.values()):
         mlmodel.input_description[input_desc.name] = input_desc.description
+
+        if input_desc.is_optional:
+            spec.description.input[i].type.isOptional = True
 
     user_defined_metadata = {}
     if model.config.transformers_version:
