@@ -100,15 +100,30 @@ class CoreMLConfig():
         self,
         config: "PretrainedConfig",
         task: str,
-        modality: str,
         use_past: bool = False,
-        seq2seq: bool = False,     # TODO: get from model type
     ):
+        if not hasattr(self, "modality"):
+            raise ValueError("the CoreMLConfig subclass must have a modality property")
+
         self._config = config
         self.task = task
-        self.modality = modality
         self.use_past = use_past
-        self.seq2seq = seq2seq
+
+    @classmethod
+    def from_model_config(cls, config: "PretrainedConfig", task: str = "default", use_past: bool = False) -> "CoreMLConfig":
+        """
+        Instantiate a `CoreMLConfig` for a specific model.
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
+            use_past: Export the model with precomputed hidden states (key and values in the
+                attention blocks) for fast autoregressive decoding.
+
+        Returns:
+            `CoreMLConfig` for this model
+        """
+        return cls(config, task=task, use_past=use_past)
 
     @classmethod
     def with_past(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfig":
@@ -696,49 +711,3 @@ class CoreMLConfig():
                 description
             )
         return output_descs
-
-
-class CoreMLTextConfig(CoreMLConfig):
-    """
-    Base class for Core ML exportable model using the "text" modality, describing metadata on how to
-    export the model through the Core ML format.
-    """
-    def __init__(self, config: "PretrainedConfig", task: str = "default", use_past: bool = False):
-        super().__init__(config, task=task, modality="text", use_past=use_past)
-
-    @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default", use_past: bool = False) -> "CoreMLTextConfig":
-        """
-        Instantiate a `CoreMLConfig` for a specific model.
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML.
-            task: The model topology that will be exported.
-
-        Returns:
-            `CoreMLTextConfig` for this model
-        """
-        return cls(config, task=task, use_past=use_past)
-
-
-class CoreMLVisionConfig(CoreMLConfig):
-    """
-    Base class for Core ML exportable model using the "vision" modality, describing metadata on how to
-    export the model through the Core ML format.
-    """
-    def __init__(self, config: "PretrainedConfig", task: str = "default"):
-        super().__init__(config, task=task, modality="vision")
-
-    @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLVisionConfig":
-        """
-        Instantiate a `CoreMLConfig` for a specific model.
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML.
-            task: The model topology that will be exported.
-
-        Returns:
-            `CoreMLVisionConfig` for this model
-        """
-        return cls(config, task=task)

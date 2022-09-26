@@ -16,14 +16,15 @@
 from collections import OrderedDict
 
 from .config import (
-    CoreMLTextConfig,
-    CoreMLVisionConfig,
+    CoreMLConfig,
     InputDescription,
     OutputDescription,
 )
 
 
-class BeitCoreMLConfig(CoreMLVisionConfig):
+class BeitCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -35,7 +36,9 @@ class BeitCoreMLConfig(CoreMLVisionConfig):
         return 0.01
 
 
-class BertCoreMLConfig(CoreMLTextConfig):
+class BertCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         input_descs = super().inputs
@@ -50,7 +53,9 @@ class BertCoreMLConfig(CoreMLTextConfig):
         return output_descs
 
 
-class ConvNextCoreMLConfig(CoreMLVisionConfig):
+class ConvNextCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -62,11 +67,13 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
         return 1e-3
 
 
-class CTRLCoreMLConfig(CoreMLTextConfig):
-    pass
+class CTRLCoreMLConfig(CoreMLConfig):
+    modality = "text"
 
 
-class CvtCoreMLConfig(CoreMLVisionConfig):
+class CvtCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         if self.task == "default":
@@ -116,7 +123,9 @@ class CvtCoreMLConfig(CoreMLVisionConfig):
         return 0.01
 
 
-class DistilBertCoreMLConfig(CoreMLTextConfig):
+class DistilBertCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         if self.task == "multiple-choice":
@@ -143,7 +152,9 @@ class DistilBertCoreMLConfig(CoreMLTextConfig):
             return super().inputs
 
 
-class GPT2CoreMLConfig(CoreMLTextConfig):
+class GPT2CoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         input_descs = super().inputs
@@ -156,7 +167,9 @@ class GPT2CoreMLConfig(CoreMLTextConfig):
         return True
 
 
-class GPTNeoCoreMLConfig(CoreMLTextConfig):
+class GPTNeoCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         input_descs = super().inputs
@@ -165,7 +178,9 @@ class GPTNeoCoreMLConfig(CoreMLTextConfig):
         return input_descs
 
 
-class LevitCoreMLConfig(CoreMLVisionConfig):
+class LevitCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -189,7 +204,9 @@ class LevitCoreMLConfig(CoreMLVisionConfig):
         return 0.01
 
 
-class MobileBertCoreMLConfig(CoreMLTextConfig):
+class MobileBertCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -197,7 +214,9 @@ class MobileBertCoreMLConfig(CoreMLTextConfig):
         return output_descs
 
 
-class MobileViTCoreMLConfig(CoreMLVisionConfig):
+class MobileViTCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         input_descs = super().inputs
@@ -211,11 +230,13 @@ class MobileViTCoreMLConfig(CoreMLVisionConfig):
         return output_descs
 
 
-class SegformerCoreMLConfig(CoreMLVisionConfig):
-    pass
+class SegformerCoreMLConfig(CoreMLConfig):
+    modality = "vision"
 
 
-class SqueezeBertCoreMLConfig(CoreMLTextConfig):
+class SqueezeBertCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -223,7 +244,9 @@ class SqueezeBertCoreMLConfig(CoreMLTextConfig):
         return output_descs
 
 
-class ViTCoreMLConfig(CoreMLVisionConfig):
+class ViTCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
@@ -231,7 +254,9 @@ class ViTCoreMLConfig(CoreMLVisionConfig):
         return output_descs
 
 
-class YolosCoreMLConfig(CoreMLVisionConfig):
+class YolosCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
     def patch_pytorch_ops(self):
         # There is no bicubic upsampling in Core ML, so we'll have to use bilinear.
         # Still seems to work well enough. Note: the bilinear resize is applied to

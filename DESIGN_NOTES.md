@@ -12,7 +12,7 @@ Design of the exporter:
 
 - The Core ML conversion process is described by a `CoreMLConfig` object, analogous to `OnnxConfig`.
 
-- In order to distinguish between the `default` task for text models and vision models, the config object has a `modality` property. For text models, the config object is actually of type `CoreMLTextConfig`. For vision models, `CoreMLVisionConfig`.
+- In order to distinguish between the `default` task for text models and vision models, the config object must have a `modality` property. Unfortunately, there is no way determine the modality from the `AutoModel` object, so this property must be set int the `CoreMLConfig` subclass.
 
 - The standard `CoreMLConfig` object already chooses appropriate input and output descriptions for most models. Only models that do something different, for example use BGR input images instead of RGB, need to have their own config object.
 
