@@ -244,6 +244,8 @@ if is_torch_available():
             # Unpack the output `past_key_values` into a single tuple.
             presents = ()
             if getattr(self.config, "use_past", False):
+                if len(outputs) < 2:
+                    raise ValueError("expected at least two output tensors, got one")
                 past_key_values = outputs[-1]
                 for i in range(len(past_key_values)):
                     for j in range(2):
