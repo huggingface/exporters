@@ -87,7 +87,7 @@ class OutputDescription:
     """
     name: str
     description: str = ""
-    do_softmax:  Optional[bool] = None
+    do_softmax: Optional[bool] = None
     do_upsample: Optional[bool] = None
     do_argmax: Optional[bool] = None
 
@@ -96,16 +96,48 @@ class CoreMLConfig():
     """
     Base class for Core ML exportable model describing metadata on how to export the model through the Core ML format.
     """
-    def __init__(self, config: "PretrainedConfig", task: str, modality: str):
+    def __init__(
+        self,
+        config: "PretrainedConfig",
+        task: str,
+        modality: str,
+        use_past: bool = False,
+        seq2seq: bool = False,     # TODO: get from model type
+    ):
         self._config = config
         self.task = task
         self.modality = modality
+        self.use_past = use_past
+        self.seq2seq = seq2seq
+
+    @classmethod
+    def with_past(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfig":
+        """
+        Instantiate a `CoreMLConfig` with `use_past` attribute set to True
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
+
+        Returns:
+            `CoreMLVisionConfig` for this model with `.use_past = True`
+        """
+        return cls(config, task=task, use_past=True)
 
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
         """
         Ordered mapping of the inputs from the original model to the exported Core ML model.
         """
+        common_inputs = self._input_descriptions
+
+        if self.use_past:
+            self.fill_inputs_with_past_key_values_(common_inputs)
+
+        return common_inputs
+
+    @property
+    def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
         if self.modality == "text" and self.task in [
             "default",
             "causal-lm",
@@ -203,13 +235,22 @@ class CoreMLConfig():
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
+        raise AssertionError("Unsupported task '{self.task}' for modality `{self.modality}`")
 
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         """
         Ordered mapping of the outputs from the original model to the exported Core ML model.
         """
+        common_outputs = self._output_descriptions
+
+        if self.use_past:
+            self.fill_outputs_with_past_key_values_(common_outputs)
+
+        return common_outputs
+
+    @property
+    def _output_descriptions(self) -> OrderedDict[str, OutputDescription]:
         if self.task == "default":
             return OrderedDict(
                 [
@@ -336,7 +377,79 @@ class CoreMLConfig():
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}' or modality `{self.modality}`")
+        raise AssertionError("Unsupported task '{self.task}' for modality `{self.modality}`")
+
+    def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
+        """
+        Determines which outputs require flexible shapes and on which axes.
+
+        Flexible output shapes are used when `sequence_length` on the model input is a range of
+        allowed lengths.
+        """
+        output_shapes = {}
+
+        # Only tasks that output a sequence need a flexible output shape.
+        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "token-classification"]:
+            input_descs = self.inputs
+            output_descs = self.outputs
+
+            # If this model has flexible input shapes, it also needs flexible output shapes.
+            if self.use_past:
+                min_length, max_length = 1, -1
+            elif "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
+                min_length, max_length = input_descs["input_ids"].sequence_length
+            else:
+                min_length, max_length = None, None
+
+            if min_length is not None:
+                for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
+                    if key in output_descs:
+                        output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
+
+        if self.use_past:
+            for i in range(self.num_layers):
+                output_shapes[f"present_{i}_key"] = [{ "axis": 2, "min": 1, "max": -1 }]
+                output_shapes[f"present_{i}_value"] = [{ "axis": 2, "min": 1, "max": -1 }]
+
+        return output_shapes
+
+    @property
+    def num_layers(self) -> int:
+        """
+        The number of layers retrieved from the model config. Override this for model configs where the
+        number of layers attribute is not called `num_layers`.
+        """
+        if not hasattr(self._config, "num_layers"):
+            raise AttributeError(
+                "could not find the number of layers attribute in the model configuration, override the num_layers"
+                " property of the model CoreMLConfig to solve this"
+            )
+        return self._config.num_layers
+
+    @property
+    def num_attention_heads(self) -> int:
+        """
+        The number of attention heads retrieved from the model config. Override this for model configs where
+        the number of attention heads attribute is not called `num_attention_heads`.
+        """
+        if not hasattr(self._config, "num_attention_heads"):
+            raise AttributeError(
+                "could not find the number of attention heads attribute in the model configuration, override the"
+                " num_attention_heads property of the model CoreMLConfig to solve this"
+            )
+        return self._config.num_attention_heads
+
+    def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
+        name = "past_key_values"
+        for i in range(self.num_layers):
+            inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
+            inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
+
+    def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
+        name = "present"
+        for i in range(self.num_layers):
+            outputs[f"{name}_{i}_key"] = OutputDescription(f"{name}_{i}_key")
+            outputs[f"{name}_{i}_value"] = OutputDescription(f"{name}_{i}_value")
 
     @property
     def values_override(self) -> Optional[Mapping[str, Any]]:
@@ -347,7 +460,7 @@ class CoreMLConfig():
             Dictionary with the keys (and their corresponding values) to override.
         """
         if hasattr(self._config, "use_cache"):
-            return {"use_cache": False}
+            return {"use_cache": self.use_past}
 
         return None
 
@@ -530,182 +643,6 @@ class CoreMLConfig():
                 "Unable to generate dummy inputs for the model. Please provide a tokenizer or a preprocessor."
             )
 
-        return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
-
-    def _convert_dummy_inputs_to_framework(self, dummy_inputs, framework):
-        if framework == TensorType.PYTORCH and is_torch_available():
-            import torch
-            for key, (ref_value, coreml_value) in dummy_inputs.items():
-                if isinstance(ref_value, np.ndarray):
-                    dummy_inputs[key] = (torch.tensor(ref_value), coreml_value)
-
-        return dummy_inputs
-
-    def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
-        """
-        Determines which outputs require flexible shapes and on which axes.
-
-        Flexible output shapes are used when `sequence_length` on the model input is a range of
-        allowed lengths.
-        """
-        output_shapes = {}
-
-        # Only tasks that output a sequence need a flexible output shape.
-        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "token-classification"]:
-            input_descs = self.inputs
-            output_descs = self.outputs
-
-            # If this model has flexible input shapes, it also needs flexible output shapes.
-            if getattr(self, "use_past", False):
-                min_length, max_length = 1, -1
-            elif "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
-                min_length, max_length = input_descs["input_ids"].sequence_length
-            else:
-                min_length, max_length = None, None
-
-            if min_length is not None:
-                for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
-                    if key in output_descs:
-                        output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
-
-        return output_shapes
-
-    def _add_pooler_output(self, output_descs):
-        if self.task == "default":
-            if self.modality == "vision":
-                description = "Last layer hidden-state after a pooling operation on the spatial dimensions"
-            else:
-                description = "Last layer hidden-state of the first token of the sequence"
-
-            output_descs["pooler_output"] = OutputDescription(
-                "pooler_output",
-                description
-            )
-        return output_descs
-
-class CoreMLTextConfig(CoreMLConfig):
-    """
-    Base class for Core ML exportable model using the "text" modality, describing metadata on how to
-    export the model through the Core ML format.
-    """
-    def __init__(self, config: "PretrainedConfig", task: str = "default"):
-        super().__init__(config, task=task, modality="text")
-
-    @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLTextConfig":
-        """
-        Instantiate a `CoreMLConfig` for a specific model.
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML.
-            task: The model topology that will be exported.
-
-        Returns:
-            `CoreMLTextConfig` for this model
-        """
-        return cls(config, task=task)
-
-
-class CoreMLVisionConfig(CoreMLConfig):
-    """
-    Base class for Core ML exportable model using the "vision" modality, describing metadata on how to
-    export the model through the Core ML format.
-    """
-    def __init__(self, config: "PretrainedConfig", task: str = "default"):
-        super().__init__(config, task=task, modality="vision")
-
-    @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLVisionConfig":
-        """
-        Instantiate a `CoreMLConfig` for a specific model.
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML.
-            task: The model topology that will be exported.
-
-        Returns:
-            `CoreMLVisionConfig` for this model
-        """
-        return cls(config, task=task)
-
-
-class CoreMLConfigWithPast(CoreMLTextConfig):
-    def __init__(
-        self,
-        config: "PretrainedConfig",
-        task: str = "default",
-        use_past: bool = False,
-    ):
-        super().__init__(config, task=task)
-        self.use_past = use_past
-
-    @classmethod
-    def with_past(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfigWithPast":
-        """
-        Instantiate a `CoreMLConfig` with `use_past` attribute set to True
-
-        Args:
-            config: The model's configuration to use when exporting to Core ML.
-            task: The model topology that will be exported.
-
-        Returns:
-            `CoreMLVisionConfig` for this model with `.use_past = True`
-        """
-        return cls(config, task=task, use_past=True)
-
-    @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
-        common_inputs = super().inputs
-        if self.use_past:
-            self.fill_inputs_with_past_key_values_(common_inputs)
-        return common_inputs
-
-    @property
-    def outputs(self) -> OrderedDict[str, OutputDescription]:
-        common_outputs = super().outputs
-        if self.use_past:
-            self.fill_outputs_with_past_key_values_(common_outputs)
-        return common_outputs
-
-    @property
-    def values_override(self) -> Optional[Mapping[str, Any]]:
-        if hasattr(self._config, "use_cache"):
-            return {"use_cache": self.use_past}
-        return None
-
-    @property
-    def num_layers(self) -> int:
-        """
-        The number of layers retrieved from the model config. Override this for model configs where the
-        number of layers attribute is not called `num_layers`.
-        """
-        if not hasattr(self._config, "num_layers"):
-            raise AttributeError(
-                "could not find the number of layers attribute in the model configuration, override the num_layers"
-                " property of the model CoreMLConfig to solve this"
-            )
-        return self._config.num_layers
-
-    @property
-    def num_attention_heads(self) -> int:
-        """
-        The number of attention heads retrieved from the model config. Override this for model configs where
-        the number of attention heads attribute is not called `num_attention_heads`.
-        """
-        if not hasattr(self._config, "num_attention_heads"):
-            raise AttributeError(
-                "could not find the number of attention heads attribute in the model configuration, override the"
-                " num_attention_heads property of the model CoreMLConfig to solve this"
-            )
-        return self._config.num_attention_heads
-
-    def generate_dummy_inputs(
-        self,
-        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
-        framework: Optional[TensorType] = None,
-    ) -> Mapping[str, Tuple[Any, Any]]:
-        dummy_inputs = super().generate_dummy_inputs(preprocessor, framework)
-
         if self.use_past:
             batch, seqlen = dummy_inputs["input_ids"][0].shape
 
@@ -732,24 +669,70 @@ class CoreMLConfigWithPast(CoreMLTextConfig):
 
         return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
 
-    def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
-        name = "past_key_values"
-        for i in range(self.num_layers):
-            inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
-            inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
+    def _convert_dummy_inputs_to_framework(self, dummy_inputs, framework):
+        if framework == TensorType.PYTORCH and is_torch_available():
+            import torch
+            for key, (ref_value, coreml_value) in dummy_inputs.items():
+                if isinstance(ref_value, np.ndarray):
+                    dummy_inputs[key] = (torch.tensor(ref_value), coreml_value)
 
-    def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
-        name = "present"
-        for i in range(self.num_layers):
-            outputs[f"{name}_{i}_key"] = OutputDescription(f"{name}_{i}_key")
-            outputs[f"{name}_{i}_value"] = OutputDescription(f"{name}_{i}_value")
+        return dummy_inputs
 
-    def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
-        outputs = super().get_flexible_outputs()
+    def _add_pooler_output(self, output_descs):
+        if self.task == "default":
+            if self.modality == "vision":
+                description = "Last layer hidden-state after a pooling operation on the spatial dimensions"
+            else:
+                description = "Last layer hidden-state of the first token of the sequence"
 
-        if self.use_past:
-            for i in range(self.num_layers):
-                outputs[f"present_{i}_key"] = [{ "axis": 2, "min": 1, "max": -1 }]
-                outputs[f"present_{i}_value"] = [{ "axis": 2, "min": 1, "max": -1 }]
+            output_descs["pooler_output"] = OutputDescription(
+                "pooler_output",
+                description
+            )
+        return output_descs
 
-        return outputs
+
+class CoreMLTextConfig(CoreMLConfig):
+    """
+    Base class for Core ML exportable model using the "text" modality, describing metadata on how to
+    export the model through the Core ML format.
+    """
+    def __init__(self, config: "PretrainedConfig", task: str = "default", use_past: bool = False):
+        super().__init__(config, task=task, modality="text", use_past=use_past)
+
+    @classmethod
+    def from_model_config(cls, config: "PretrainedConfig", task: str = "default", use_past: bool = False) -> "CoreMLTextConfig":
+        """
+        Instantiate a `CoreMLConfig` for a specific model.
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
+
+        Returns:
+            `CoreMLTextConfig` for this model
+        """
+        return cls(config, task=task, use_past=use_past)
+
+
+class CoreMLVisionConfig(CoreMLConfig):
+    """
+    Base class for Core ML exportable model using the "vision" modality, describing metadata on how to
+    export the model through the Core ML format.
+    """
+    def __init__(self, config: "PretrainedConfig", task: str = "default"):
+        super().__init__(config, task=task, modality="vision")
+
+    @classmethod
+    def from_model_config(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLVisionConfig":
+        """
+        Instantiate a `CoreMLConfig` for a specific model.
+
+        Args:
+            config: The model's configuration to use when exporting to Core ML.
+            task: The model topology that will be exported.
+
+        Returns:
+            `CoreMLVisionConfig` for this model
+        """
+        return cls(config, task=task)

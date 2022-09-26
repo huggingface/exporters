@@ -112,7 +112,7 @@ def get_input_types(
         shape = list(default_shape)
 
         # Does the input shape need to be flexible?
-        if getattr(config, "use_past", False):
+        if config.use_past:
             shape[-1] = ct.RangeDim()
             default_shape = None
         elif isinstance(input_desc.sequence_length, tuple):
@@ -140,7 +140,7 @@ def get_input_types(
         else:
             logger.info("Skipping token_type_ids input")
 
-        if getattr(config, "use_past", False):
+        if config.use_past:
             shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
             shape[2] = ct.RangeDim(0, -1)
             shape = ct.Shape(shape)
@@ -220,7 +220,7 @@ if is_torch_available():
 
             # Convert the past_key_values_x_key/value inputs back into tuples,
             # as that is what the original model expects.
-            if getattr(self.config, "use_past", False):
+            if self.config.use_past:
                 remaining -= self.config.num_layers * 2
                 past_key_values = []
                 for i in range(self.config.num_layers):
@@ -243,7 +243,7 @@ if is_torch_available():
 
             # Unpack the output `past_key_values` into a single tuple.
             presents = ()
-            if getattr(self.config, "use_past", False):
+            if self.config.use_past:
                 if len(outputs) < 2:
                     raise ValueError("expected at least two output tensors, got one")
                 past_key_values = outputs[-1]
@@ -305,7 +305,7 @@ if is_torch_available():
                 return x
 
             if self.config.task == "default":
-                if getattr(self.config, "use_past", False):
+                if self.config.use_past:
                     return (outputs[0],) + presents
                 elif len(output_descs) > 1 and len(outputs) > 1:
                     return outputs[0], outputs[1]  # last_hidden_state, pooler_output
