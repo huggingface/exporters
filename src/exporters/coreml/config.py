@@ -419,6 +419,12 @@ class CoreMLConfig():
         The number of layers retrieved from the model config. Override this for model configs where the
         number of layers attribute is not called `num_layers`.
         """
+        if hasattr(self._config, "num_hidden_layers"):
+            return self._config.num_hidden_layers
+
+        if hasattr(self._config, "n_layer"):
+            return self._config.n_layer
+
         if not hasattr(self._config, "num_layers"):
             raise AttributeError(
                 "could not find the number of layers attribute in the model configuration, override the num_layers"

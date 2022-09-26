@@ -63,9 +63,7 @@ class ConvNextCoreMLConfig(CoreMLVisionConfig):
 
 
 class CTRLCoreMLConfig(CoreMLTextConfig):
-    @property
-    def num_layers(self) -> int:
-        return self._config.n_layer
+    pass
 
 
 class CvtCoreMLConfig(CoreMLVisionConfig):
