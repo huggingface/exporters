@@ -147,10 +147,6 @@ TODO: also TFAutoModel example
 
 Each ready-made configuration comes with a set of _features_ that enable you to export models for different types of topologies or tasks. As shown in the table below, each feature is associated with a different auto class:
 
-<!--
-| `seq2seq-lm`, `seq2seq-lm-with-past` | `AutoModelForSeq2SeqLM`              |
--->
-
 | Feature                              | Auto Class                           |
 | ------------------------------------ | ------------------------------------ |
 | `default`, `default-with-past`       | `AutoModel`                          |
@@ -163,6 +159,7 @@ Each ready-made configuration comes with a set of _features_ that enable you to 
 | `object-detection`                   | `AutoModelForObjectDetection`        |
 | `question-answering`                 | `AutoModelForQuestionAnswering`      |
 | `semantic-segmentation`              | `AutoModelForSemanticSegmentation`   |
+| `seq2seq-lm`, `seq2seq-lm-with-past` | `AutoModelForSeq2SeqLM`              |
 | `sequence-classification`            | `AutoModelForSequenceClassification` |
 | `token-classification`               | `AutoModelForTokenClassification`    |
 
@@ -302,7 +299,7 @@ To find out what input and output options are available for the model you're int
 
 Not all inputs or outputs are always required: For text models, you may remove the `attention_mask` input. Without this input, the attention mask is always assumed to be filled with ones (no padding). However, if the task requires a `token_type_ids` input, there must also be an `attention_mask` input.
 
-Removing inputs and/or outputs is again accomplished by making a subclass of `CoreMLConfig` and overriding the `inputs` and `outputs` properties.
+Removing inputs and/or outputs is accomplished by making a subclass of `CoreMLConfig` and overriding the `inputs` and `outputs` properties.
 
 By default, a model is generated in the ML Program format. By overriding the `use_legacy_format` property to return `True`, the older NeuralNetwork format will be used. This is not recommended and only exists as a workaround for models that fail to convert to the ML Program format.
 
@@ -324,7 +321,17 @@ In this section, we'll look at how DistilBERT was implemented to show what's inv
 
 TODO: didn't write this section yet because the implementation is not done yet
 
-TODO: how to implement custom ops + link to coremltools documentation on this topic
+Let’s start with the configuration object. We provide an abstract classes that you should inherit from, `CoreMLConfig`.
+
+```python
+from exporters.coreml import CoreMLConfig
+```
+
+TODO: stuff to cover here:
+
+- `modality` property
+- how to implement custom ops + link to coremltools documentation on this topic
+- decoder models (`use_past`) and encoder-decoder models (`seq2seq`)
 
 #### Exporting the model
 
@@ -376,6 +383,45 @@ mlmodel.save("DistilBert.mlpackage")
 ```
 
 Note: If the configuration object used returns `True` from `use_legacy_format`, the model can be saved as `ModelName.mlmodel` instead of `.mlpackage`.
+
+#### Exporting a decoder model
+
+Decoder-based models can use a `past_key_values` input that ontains pre-computed hidden-states (key and values in the self-attention blocks), which allows for much faster sequential decoding. This feature is enabled by passing `use_cache=True` to the Transformer model.
+
+To enable this feature with the Core ML exporter, set the `use_past=True` argument when creating the `CoreMLConfig` object:
+
+```python
+coreml_config = CTRLCoreMLConfig(base_model.config, task="causal-lm", use_past=True)
+
+# or:
+coreml_config = CTRLCoreMLConfig.with_past(base_model.config, task="causal-lm")
+```
+
+This adds multiple new inputs and outputs to the model with names such as `past_key_values_0_key`, `past_key_values_0_value`, ... (inputs) and `present_key_values_0_key`, `present_key_values_0_value`, ... (outputs).
+
+Enabling this option makes the model less convenient to use, since you will have to keep track of many additional tensors, but it does make inference much faster on sequences.
+
+TODO: Example of how to use this in Core ML. The `past_key_values` tensors will grow larger over time. The `attention_mask` tensor must have the size of `past_key_values` plus new `input_ids`.
+
+#### Exporting an encoder-decoder model
+
+TODO: properly write this section
+
+You'll need to export the model as two separate Core ML models: the encoder and the decoder.
+
+Export the model like so:
+
+```python
+coreml_config = TODOCoreMLConfig(base_model.config, task="seq2seq-lm", seq2seq="encoder")
+encoder_mlmodel = export(preprocessor, base_model.get_encoder(), coreml_config)
+
+coreml_config = TODOCoreMLConfig(base_model.config, task="seq2seq-lm", seq2seq="decoder")
+decoder_mlmodel = export(preprocessor, base_model, coreml_config)
+```
+
+When the `seq2seq` option is used, the sequence length in the Core ML model is always unbounded. The `sequence_length` specified in the configuration object is ignored.
+
+This can also be combined with `use_past=True`. TODO: explain how to use this.
 
 #### Validating the model outputs
 

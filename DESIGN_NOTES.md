@@ -4,7 +4,7 @@ The design of the Core ML exporter for 🤗 Transformers is based on that of the
 
 ## Philosophy
 
-An important goal of Core ML is to make using models completely hands-off. For example, if a model requires an image as input, you can simply give it an image object, without having to preprocess the image first. And if the model is a classifier, the output is simply the winning class label instead of a logits tensor. The Core ML exporter will add extra operations to the beginning and end of the model where possible, so that users of these models do not have to do their own pre- and postprocessing if Core ML can already handle this for them.
+An important goal of Core ML is to make using models completely hands-off. For example, if a model requires an image as input, you can simply give it an image object without having to preprocess the image first. And if the model is a classifier, the output is the winning class label instead of a logits tensor. The Core ML exporter will add extra operations to the beginning and end of the model where possible, so that users of these models do not have to do their own pre- and postprocessing if Core ML can already handle this for them.
 
 The Core ML exporter is built on top of `coremltools`. This library first converts the PyTorch or TensorFlow model into an intermediate representation known as MIL, then performs optimizations on the MIL graph, and finally serializes the result into a `.mlmodel` or `.mlpackage` file (the latter being the preferred format).
 
@@ -12,11 +12,11 @@ Design of the exporter:
 
 - The Core ML conversion process is described by a `CoreMLConfig` object, analogous to `OnnxConfig`.
 
-- In order to distinguish between the `default` task for text models and vision models, the config object must have a `modality` property. Unfortunately, there is no way determine the modality from the `AutoModel` object, so this property must be set int the `CoreMLConfig` subclass.
+- In order to distinguish between the `default` task for text models and vision models, the config object must have a `modality` property. Unfortunately, there is no way determine the modality from the `AutoModel` object, so this property must be set in the `CoreMLConfig` subclass.
 
 - The standard `CoreMLConfig` object already chooses appropriate input and output descriptions for most models. Only models that do something different, for example use BGR input images instead of RGB, need to have their own config object.
 
-- If a user wants to change properties of the inputs or outputs (name, description, other settings), they have to subclass the `XYZCoreMLConfig` object and override these methods. Not very convenient, but it's also not something people will need to do a lot (and if they do, it means we made the wrong default choice).
+- If a user wants to change properties of the inputs or outputs (name, description, sequence length, other settings), they have to subclass the `XYZCoreMLConfig` object and override these methods. Not very convenient, but it's also not something people will need to do a lot — and if they do, it means we made the wrong default choice.
 
 - Where possible, the behavior of the converted model is described by the tokenizer or feature extractor. For example, to use a different input image size, the user would need to create the feature extractor with those settings and use that during the conversion instead of the default feature extractor.
 
@@ -44,11 +44,7 @@ Note: Tokenizers are not a built-in feature of Core ML. A model that requires to
 
 The Core ML exporter supports most of the tasks that the ONNX exporter supports, except for:
 
-- `causal-lm` / `AutoModelForCausalLM`
-- `seq2seq-lm` / `AutoModelForSeq2SeqLM`
 - `image-segmentation` / `AutoModelForImageSegmentation`
-
-(Didn't get around to implementing these yet.)
 
 Tasks that the Core ML exporter supports but the ONNX exporter currently doesn't:
 
@@ -68,19 +64,19 @@ Tasks that neither of them support right now:
 - `AutoModelForVideoClassification`
 - `AutoModelForVision2Seq`
 - `AutoModelForVisualQuestionAnswering`
-- `AutoModelWithLMHead`
 - `...DoubleHeadsModel`
 - `...ForImageClassificationWithTeacher`
 
 Tasks that could be improved:
 
 - `object-detection`. If a Core ML model outputs the predicted bounding boxes in a certain manner, the user does not have to do any decoding and can directly use these outputs in their app (through the Vision framework). Currently, the Core ML exporter does not add this extra functionality.
+- `seq2seq-lm`. Unfortunately, `coremltools` gives errors on most of our encoder-decoder models. In theory, all the plumbing for seq2seq models is implemented in the exporter but no models currently work with it.
 
 ## Missing features
 
 The following are not supported yet but would be useful to add:
 
-- `-with-past` versions of the tasks. This will make models harder to use, since the user will have to keep track of many additional tensors, but it does make inference much faster on sequences.
+- `-with-past` versions for seq2seq models.
 
 - Flexible input sizes. Core ML models typically work with fixed input dimensions, but it also supports flexible image sizes and tensor shapes. The exporter currently supports flexible sequence lengths, but not image sizes.
 

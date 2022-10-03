@@ -39,7 +39,7 @@ if is_torch_available():
         AutoModelForNextSentencePrediction,
         AutoModelForObjectDetection,
         AutoModelForQuestionAnswering,
-        # AutoModelForSeq2SeqLM,
+        AutoModelForSeq2SeqLM,
         AutoModelForSemanticSegmentation,
         AutoModelForSequenceClassification,
         AutoModelForTokenClassification,
@@ -110,7 +110,7 @@ class FeaturesManager:
             "object-detection": AutoModelForObjectDetection,
             "question-answering": AutoModelForQuestionAnswering,
             "semantic-segmentation": AutoModelForSemanticSegmentation,
-            # "seq2seq-lm": AutoModelForSeq2SeqLM,
+            "seq2seq-lm": AutoModelForSeq2SeqLM,
             "sequence-classification": AutoModelForSequenceClassification,
             "token-classification": AutoModelForTokenClassification,
         }

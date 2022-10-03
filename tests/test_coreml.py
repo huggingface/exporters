@@ -33,14 +33,22 @@ if is_torch_available() or is_tf_available():
     from exporters.coreml.features import FeaturesManager
 
 
+class TextCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
 class CoreMLConfigTestCase(TestCase):
+    def test_unknown_modality(self):
+        with pytest.raises(ValueError):
+            config = CoreMLConfig(None, task="default")
+
     def test_unknown_task(self):
         with pytest.raises(AssertionError):
-            config = CoreMLConfig(None, task="unknown-task", modality="vision")
+            config = TextCoreMLConfig(None, task="unknown-task")
             _ = config.inputs
 
     def test_sequence_length(self):
-        config = CoreMLConfig(None, task="default", modality="text")
+        config = TextCoreMLConfig(None, task="default")
         flexible_outputs = config.get_flexible_outputs()
         self.assertEqual(len(flexible_outputs), 1)
         self.assertIn("last_hidden_state", flexible_outputs)
@@ -51,7 +59,7 @@ class CoreMLConfigTestCase(TestCase):
         self.assertEqual(flexible_output[0]["min"], 1)
         self.assertEqual(flexible_output[0]["max"], 128)
 
-        config = CoreMLConfig(None, task="sequence-classification", modality="text")
+        config = TextCoreMLConfig(None, task="sequence-classification")
         flexible_outputs = config.get_flexible_outputs()
         self.assertTrue(len(flexible_outputs) == 0)
 
@@ -72,6 +80,7 @@ PYTORCH_EXPORT_MODELS = {
 }
 
 PYTORCH_EXPORT_WITH_PAST_MODELS = {
+    ("ctrl", "sshleifer/tiny-ctrl"),
     #TODO ("gpt2", "distilgpt2"),
 }
 

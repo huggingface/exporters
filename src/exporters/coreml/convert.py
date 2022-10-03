@@ -112,7 +112,7 @@ def get_input_types(
         shape = list(default_shape)
 
         # Does the input shape need to be flexible?
-        if config.use_past:
+        if config.use_past or config.seq2seq:
             shape[-1] = ct.RangeDim()
             default_shape = None
         elif isinstance(input_desc.sequence_length, tuple):
@@ -139,6 +139,14 @@ def get_input_types(
             )
         else:
             logger.info("Skipping token_type_ids input")
+
+        if "encoder_last_hidden_state" in input_descs:
+            input_desc = input_descs["encoder_last_hidden_state"]
+            shape = list(dummy_inputs["encoder_last_hidden_state"][0].shape)
+            shape[1] = ct.RangeDim()
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.int32)
+            )
 
         if config.use_past:
             shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
@@ -218,8 +226,9 @@ if is_torch_available():
                 "return_dict": False,
             }
 
-            # Convert the past_key_values_x_key/value inputs back into tuples,
+            # Convert the past_key_values_x_key and _value inputs back into tuples,
             # as that is what the original model expects.
+            # Assumes past_key_values are always the last inputs to the Wrapper.
             if self.config.use_past:
                 remaining -= self.config.num_layers * 2
                 past_key_values = []
@@ -230,7 +239,11 @@ if is_torch_available():
                     ))
                 model_kwargs["past_key_values"] = past_key_values
 
-            if self.config.modality == "text":
+            if self.config.seq2seq == "decoder":
+                model_kwargs["encoder_outputs"] = (all_inputs[0],)
+                model_kwargs["decoder_input_ids"] = all_inputs[1]
+                model_kwargs["decoder_attention_mask"] = all_inputs[2]
+            elif self.config.modality == "text":
                 if remaining >= 2:
                     model_kwargs["attention_mask"] = all_inputs[1]
                 if remaining >= 3:
@@ -239,7 +252,13 @@ if is_torch_available():
                 if self.config.task == "masked-im":
                     model_kwargs["bool_masked_pos"] = all_inputs[1]
 
-            outputs = self.model(inputs, **model_kwargs)
+            # Run the model with the provided inputs.
+            if self.config.seq2seq == "encoder":
+                outputs = self.model.get_encoder()(inputs, **model_kwargs)
+            elif self.config.seq2seq == "decoder":
+                outputs = self.model(**model_kwargs)
+            else:
+                outputs = self.model(inputs, **model_kwargs)
 
             # Unpack the output `past_key_values` into a single tuple.
             presents = ()
@@ -265,11 +284,12 @@ if is_torch_available():
                 # so skip that output if it's present.
                 return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
 
-            if self.config.task in [
+            if self.config.seq2seq != "encoder" and self.config.task in [
                 "causal-lm",
                 "masked-lm",
                 "multiple-choice",
                 "next-sentence-prediction",
+                "seq2seq-lm",
                 "sequence-classification",
                 "token-classification",
             ]:
@@ -303,6 +323,9 @@ if is_torch_available():
                 if output_desc.do_argmax:
                     x = x.argmax(1)
                 return x
+
+            if self.config.seq2seq == "encoder" and self.config.task == "seq2seq-lm":
+                return outputs[0]  # last_hidden_state
 
             if self.config.task == "default":
                 if self.config.use_past:

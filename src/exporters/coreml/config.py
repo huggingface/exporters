@@ -95,12 +95,21 @@ class OutputDescription:
 class CoreMLConfig():
     """
     Base class for Core ML exportable model describing metadata on how to export the model through the Core ML format.
+
+    Args:
+        config: The model's configuration to use when exporting to Core ML.
+        task: The model topology that will be exported.
+        use_past: Export the model with precomputed hidden states (key and values in the
+            attention blocks) for fast autoregressive decoding.
+        seq2seq: `None` if not an encoder-decoder model, `"encoder"` to export the encoder
+            part of a seq2seq model, `"decoder"` to export the decoder part.
     """
     def __init__(
         self,
         config: "PretrainedConfig",
         task: str,
         use_past: bool = False,
+        seq2seq: Optional[str] = None,
     ):
         if not hasattr(self, "modality"):
             raise ValueError("the CoreMLConfig subclass must have a modality property")
@@ -108,9 +117,16 @@ class CoreMLConfig():
         self._config = config
         self.task = task
         self.use_past = use_past
+        self.seq2seq = seq2seq
 
     @classmethod
-    def from_model_config(cls, config: "PretrainedConfig", task: str = "default", use_past: bool = False) -> "CoreMLConfig":
+    def from_model_config(
+        cls,
+        config: "PretrainedConfig",
+        task: str = "default",
+        use_past: bool = False,
+        seq2seq: Optional[str] = None,
+    ) -> "CoreMLConfig":
         """
         Instantiate a `CoreMLConfig` for a specific model.
 
@@ -119,25 +135,34 @@ class CoreMLConfig():
             task: The model topology that will be exported.
             use_past: Export the model with precomputed hidden states (key and values in the
                 attention blocks) for fast autoregressive decoding.
+            seq2seq: `None` if not an encoder-decoder model, `"encoder"` to export the encoder
+                part of a seq2seq model, `"decoder"` to export the decoder part.
 
         Returns:
             `CoreMLConfig` for this model
         """
-        return cls(config, task=task, use_past=use_past)
+        return cls(config, task=task, use_past=use_past, seq2seq=seq2seq)
 
     @classmethod
-    def with_past(cls, config: "PretrainedConfig", task: str = "default") -> "CoreMLConfig":
+    def with_past(
+        cls,
+        config: "PretrainedConfig",
+        task: str = "default",
+        seq2seq: Optional[str] = None,
+    ) -> "CoreMLConfig":
         """
         Instantiate a `CoreMLConfig` with `use_past` attribute set to True
 
         Args:
             config: The model's configuration to use when exporting to Core ML.
             task: The model topology that will be exported.
+            seq2seq: `None` if not an encoder-decoder model, `"encoder"` to export the encoder
+                part of a seq2seq model, `"decoder"` to export the decoder part.
 
         Returns:
             `CoreMLVisionConfig` for this model with `.use_past = True`
         """
-        return cls(config, task=task, use_past=True)
+        return cls(config, task=task, use_past=True, seq2seq=seq2seq)
 
     @property
     def inputs(self) -> OrderedDict[str, InputDescription]:
@@ -153,12 +178,40 @@ class CoreMLConfig():
 
     @property
     def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
+        if self.modality == "text" and self.seq2seq == "decoder":
+            return OrderedDict(
+                [
+                    (
+                        "encoder_last_hidden_state",
+                        InputDescription(
+                            "encoder_last_hidden_state",
+                            "Sequence of hidden states at the output of the last layer of the encoder",
+                        )
+                    ),
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "decoder_input_ids",
+                            "Indices of decoder input sequence tokens in the vocabulary",
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "decoder_attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                ]
+            )
+
         if self.modality == "text" and self.task in [
             "default",
             "causal-lm",
             "masked-lm",
             "question-answering",
             "sequence-classification",
+            "seq2seq-lm",
             "token-classification",
         ]:
             return OrderedDict(
@@ -250,7 +303,7 @@ class CoreMLConfig():
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}' for modality `{self.modality}`")
+        raise AssertionError(f"Unsupported task '{self.task}' for modality '{self.modality}'")
 
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
@@ -266,7 +319,7 @@ class CoreMLConfig():
 
     @property
     def _output_descriptions(self) -> OrderedDict[str, OutputDescription]:
-        if self.task == "default":
+        if self.task == "default" or self.seq2seq == "encoder":
             return OrderedDict(
                 [
                     (
@@ -319,7 +372,7 @@ class CoreMLConfig():
                 ]
             )
 
-        if self.task in ["causal-lm", "masked-lm", "token-classification"]:
+        if self.task in ["causal-lm", "masked-lm", "seq2seq-lm", "token-classification"]:
             return OrderedDict(
                 [
                     (
@@ -392,7 +445,7 @@ class CoreMLConfig():
                 ]
             )
 
-        raise AssertionError("Unsupported task '{self.task}' for modality `{self.modality}`")
+        raise AssertionError(f"Unsupported task '{self.task}' for modality '{self.modality}'")
 
     def get_flexible_outputs(self) -> Mapping[str, List[Mapping[str, int]]]:
         """
@@ -404,12 +457,12 @@ class CoreMLConfig():
         output_shapes = {}
 
         # Only tasks that output a sequence need a flexible output shape.
-        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "token-classification"]:
+        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "seq2seq-lm", "token-classification"]:
             input_descs = self.inputs
             output_descs = self.outputs
 
             # If this model has flexible input shapes, it also needs flexible output shapes.
-            if self.use_past:
+            if self.use_past or self.seq2seq:
                 min_length, max_length = 1, -1
             elif "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
                 min_length, max_length = input_descs["input_ids"].sequence_length
@@ -417,7 +470,7 @@ class CoreMLConfig():
                 min_length, max_length = None, None
 
             if min_length is not None:
-                for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
+                for key in ["encoder_last_hidden_state", "last_hidden_state", "logits", "start_logits", "end_logits"]:
                     if key in output_descs:
                         output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
 
@@ -434,6 +487,12 @@ class CoreMLConfig():
         The number of layers retrieved from the model config. Override this for model configs where the
         number of layers attribute is not called `num_layers`.
         """
+        if self.seq2seq == "encoder" and hasattr(self._config, "encoder_layers"):
+            return self._config.encoder_layers
+
+        if self.seq2seq == "decoder" and hasattr(self._config, "decoder_layers"):
+            return self._config.decoder_layers
+
         if hasattr(self._config, "num_hidden_layers"):
             return self._config.num_hidden_layers
 
@@ -453,6 +512,12 @@ class CoreMLConfig():
         The number of attention heads retrieved from the model config. Override this for model configs where
         the number of attention heads attribute is not called `num_attention_heads`.
         """
+        if self.seq2seq == "encoder" and hasattr(self._config, "encoder_attention_heads"):
+            return self._config.encoder_attention_heads
+
+        if self.seq2seq == "decoder" and hasattr(self._config, "decoder_attention_heads"):
+            return self._config.decoder_attention_heads
+
         if not hasattr(self._config, "num_attention_heads"):
             raise AttributeError(
                 "could not find the number of attention heads attribute in the model configuration, override the"
@@ -646,6 +711,10 @@ class CoreMLConfig():
             if "token_type_ids" in input_descs:
                 token_type_ids = np.zeros(shape, dtype=np.int64)
                 dummy_inputs["token_type_ids"] = (token_type_ids, token_type_ids.astype(np.int32))
+
+            if "encoder_last_hidden_state" in input_descs:
+                last_hidden_state = np.zeros((1, sequence_length, self._config.hidden_size), dtype=np.float32)
+                dummy_inputs["encoder_last_hidden_state"] = (last_hidden_state, last_hidden_state)
 
         elif (
             self.modality == "vision"
