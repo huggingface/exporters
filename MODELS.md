@@ -154,7 +154,13 @@ The following models are known to give errors when attempting conversion to Core
 
 ALBERT
 
-BART
+**BART**
+
+- ? BartModel
+- ❌ BartForCausalLM: Conversion succeeds, but "Error computing NN outputs".
+- ❌ BartForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+- ? BartForQuestionAnswering
+- ? BartForSequenceClassification
 
 BARThez
 
@@ -166,15 +172,24 @@ BertJapanese
 
 Bertweet
 
-**BigBird** "AttributeError: 'list' object has no attribute 'val'" in `reshape` op [is fixed now?]
+**BigBird**
 
-**BigBirdPegasus** "AttributeError: 'list' object has no attribute 'val'" on the decoder [is fixed now?]
+- ❌ BigBirdForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op
 
-**Blenderbot** "AttributeError: 'list' object has no attribute 'val'" [is fixed now?]
+**BigBirdPegasus**
 
-**Blenderbot Small** "AttributeError: 'list' object has no attribute 'val'" [is fixed now?]
+- ❌ BigBirdPegasusForCausalLM: Core ML error "Error computing NN outputs"
+- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
 
-**BLOOM** Conversion error on a slicing operation.
+**Blenderbot**
+
+- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+
+**Blenderbot Small**
+
+- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+
+**BLOOM** [TODO verify] Conversion error on a slicing operation.
 
 BORT
 
@@ -184,7 +199,7 @@ CamemBERT
 
 CANINE
 
-**CodeGen** Conversion error on einsum.
+**CodeGen** [TODO verify] Conversion error on einsum.
 
 ConvBERT
 
@@ -198,11 +213,15 @@ DialoGPT
 
 DPR
 
-**ELECTRA** "AttributeError: 'list' object has no attribute 'val'" in `reshape` op [is fixed now?]
+**ELECTRA**
+
+- ❌ ElectraForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op.
 
 Encoder Decoder Models
 
-**ERNIE** Conversion error on a slicing operation. `is_decoder` model: "AttributeError: 'list' object has no attribute 'val'" in `reshape` op [is fixed now?]
+**ERNIE**
+
+- ❌ ErnieForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also conversion error on a slicing operation?
 
 ESM
 
@@ -210,13 +229,19 @@ FlauBERT
 
 FNet
 
-**FSMT** Wrapper outputs wrong size logits tensor; goes wrong somewhere in hidden states output from decoder when `return_dict=False`?
+**FSMT**
+
+- ❌ FSMTForConditionalGeneration. Encoder converts OK. For decoder, `Wrapper` outputs wrong size logits tensor; goes wrong somewhere in hidden states output from decoder when `return_dict=False`?
 
 Funnel Transformer
 
 GPT
 
-**GPT Neo**. Gives no errors during conversion but predicts wrong results, or NaN when `use_legacy_format=True`.
+**GPT Neo**. [TODO verify] Gives no errors during conversion but predicts wrong results, or NaN when `use_legacy_format=True`.
+
+- GPTNeoModel
+- GPTNeoForCausalLM
+- GPTNeoForSequenceClassification
 
 GPT NeoX
 
@@ -230,19 +255,35 @@ I-BERT
 
 LayoutLM
 
-**LED** JIT trace fails
+**LED**
+
+- ❌ LEDForConditionalGeneration: JIT trace fails with the error:
+
+```python
+RuntimeError: 0INTERNAL ASSERT FAILED at "/Users/distiller/project/pytorch/torch/csrc/jit/ir/alias_analysis.cpp":607, please report a bug to PyTorch. We don't have an op for aten::constant_pad_nd but it isn't a special case.  Argument types: Tensor, int[], bool,
+```
 
 LiLT
 
 Longformer
 
-**LongT5** Conversion error on a `select` op?
+**LongT5**
+
+- ❌ LongT5ForConditionalGeneration: Conversion error:
+
+```python
+ValueError: In op, of type not_equal, named 133, the named input `y` must have the same data type as the named input `x`. However, y has dtype fp32 whereas x has dtype int32.
+```
 
 LUKE
 
-**M2M100** "AttributeError: 'list' object has no attribute 'val'" [is fixed now?] / "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
+**M2M100**
 
-**MarianMT** "AttributeError: 'list' object has no attribute 'val'" [is fixed now?]
+- ❌ M2M100ForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+
+**MarianMT**
+
+- ❌ MarianMTModel: Encoder converts OK. Decoder error in my `expand` op workaround.
 
 MarkupLM
 
@@ -256,27 +297,43 @@ mLUKE
 
 MPNet
 
-MT5
+**MT5**
 
-**MVP** "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
+- ❌ MT5ForConditionalGeneration: Converter error "User defined pattern has more than one final operation"
 
-**NEZHA** Conversion error on a slicing operation.
+**MVP**
+
+- ❌ MvpForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+
+**NEZHA** [TODO verify] Conversion error on a slicing operation.
 
 NLLB
 
 Nyströmformer
 
-**OPT** Conversion error on a slicing operation.
+**OPT** [TODO verify] Conversion error on a slicing operation.
 
-**Pegasus** "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
+**Pegasus**
 
-**PEGASUS-X** needs `remainder` op (added recently in dev version)
+- ❌ PegasusForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+
+**PEGASUS-X**
+
+- ❌ PegasusXForConditionalGeneration: "AttributeError: 'list' object has no attribute 'val'" in `pad` op. Maybe: needs `remainder` op (added recently in coremltools dev version).
 
 PhoBERT
 
-**PLBart** "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
+**PLBart**
 
-**ProphetNet** Conversion error on `clip` op.
+- ❌ PLBartForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+
+**ProphetNet**
+
+- ❌ ProphetNetForConditionalGeneration. Conversion error:
+
+```python
+ValueError: Op "input.3" (op_type: clip) Input x="position_ids" expects tensor or scalar of dtype from type domain ['fp16', 'fp32'] but got tensor[1,is4273,int32]
+```
 
 QDQBert
 
@@ -284,19 +341,31 @@ RAG
 
 REALM
 
-Reformer
+**Reformer**
 
-**RemBERT** Error adding a constant value to the MIL graph.
+- ❌ ReformerModelWithLMHead: does not have `past_key_values` but `past_buckets_states`
+
+**RemBERT**
+
+- ❌ RemBertForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also error adding a constant value to the MIL graph?
 
 RetriBERT
 
-**RoBERTa** "AttributeError: 'list' object has no attribute 'val'" in `reshape` op [is fixed now?]
+**RoBERTa**
 
-**RoFormer** Error adding a constant value to the MIL graph.
+- ❌ RobertaForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op.
 
-**Splinter**  Error adding a constant value to the MIL graph.
+**RoFormer**
 
-**T5** The PyTorch graph contains unsupported operations.
+- ❌ RoFormerForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also error adding a constant value to the MIL graph?
+
+**Splinter**
+
+- ❌ SplinterModel: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also error adding a constant value to the MIL graph?
+
+**T5**
+
+- ❌ T5ForConditionalGeneration: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op.
 
 T5v1.1
 
@@ -308,17 +377,23 @@ Transformer XL
 
 UL2
 
-**XGLM** Conversion error on a slicing operation.
+**XGLM** [TODO verify] Conversion error on a slicing operation.
 
 XLM
 
-**XLM-ProphetNet** Conversion error on `clip` op.
+**XLM-ProphetNet**
+
+- XLMProphetNetForConditionalGeneration: Conversion error:
+
+```python
+ValueError: Op "input.3" (op_type: clip) Input x="position_ids" expects tensor or scalar of dtype from type domain ['fp16', 'fp32'] but got tensor[1,is4506,int32]
+```
 
 XLM-RoBERTa
 
 XLM-RoBERTa-XL
 
-**XLNet** Conversion error.
+**XLNet** [TODO verify] Conversion error.
 
 YOSO
 
@@ -330,7 +405,7 @@ Deformable DETR
 
 DeiT
 
-**DETR** The conversion completes without errors but the Core ML compiler cannot load the model. "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
+**DETR** [TODO verify] The conversion completes without errors but the Core ML compiler cannot load the model. "Invalid operation output name: got 'tensor' when expecting token of type 'ID'"
 
 DiT
 
@@ -348,7 +423,7 @@ RegNet
 
 ResNet
 
-**Swin Transformer** The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d. (Some of these may be supported in latest dev version.)
+**Swin Transformer** [TODO verify] The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d. (Some of these may be supported in latest dev version.)
 
 Swin Transformer V2
 
@@ -362,29 +437,29 @@ ViTMSN
 
 ### Audio Models
 
-**Hubert** Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
+**Hubert** [TODO verify] Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
 
 MCTCT
 
-**SEW** Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
+**SEW** [TODO verify] Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
 
 SEW-D
 
-**Speech2Text** The "glu" op is not supported by coremltools. Should be possible to solve by defining a `@register_torch_op` function. (Update: should be supported in dev version now.)
+**Speech2Text** [TODO verify] The "glu" op is not supported by coremltools. Should be possible to solve by defining a `@register_torch_op` function. (Update: should be supported in dev version now.)
 
 Speech2Text2
 
-**UniSpeech** Missing op for `_weight_norm` (possible to work around), also same Core ML compiler error as DETR.
+**UniSpeech** [TODO verify] Missing op for `_weight_norm` (possible to work around), also same Core ML compiler error as DETR.
 
 UniSpeech-SAT
 
-**Wav2Vec2** Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
+**Wav2Vec2** [TODO verify] Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
 
 Wav2Vec2-Conformer
 
 Wav2Vec2Phoneme
 
-**WavLM** Missing ops for `_weight_norm`, `add_`, `full_like`.
+**WavLM** [TODO verify] Missing ops for `_weight_norm`, `add_`, `full_like`.
 
 Whisper
 
@@ -396,15 +471,17 @@ XLSR-Wav2Vec2
 
 CLIP
 
-**Data2Vec** "AttributeError: 'list' object has no attribute 'val'" in `reshape` op [is fixed now?]
+**Data2Vec**
 
-**Data2VecAudio** The conversion completes without errors but the Core ML compiler cannot load the model.
+- ❌ Data2VecTextForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op
+
+- Data2VecAudio: [TODO verify] The conversion completes without errors but the Core ML compiler cannot load the model.
 
 Donut
 
 FLAVA
 
-**GroupViT** Conversion issue with `scatter_along_axis` operation.
+**GroupViT** [TODO verify] Conversion issue with `scatter_along_axis` operation.
 
 LayoutLMV2
 

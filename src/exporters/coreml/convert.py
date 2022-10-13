@@ -224,6 +224,11 @@ if is_torch_available():
 
             model_kwargs = {
                 "return_dict": False,
+
+                # CoreMLConfig's values_override is supposed to do this, but not all
+                # models look at self.config.use_cache (e.g. ElectraForCausalLM)
+                # Can't do it here either because it doesn't work with all models!
+                #"use_cache": self.config.use_past or self.config.seq2seq,
             }
 
             # Convert the past_key_values_x_key and _value inputs back into tuples,
