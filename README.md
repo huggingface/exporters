@@ -75,6 +75,8 @@ Ready-made configurations include the following architectures:
 
 <!-- TODO: automatically generate this list -->
 
+[See here](MODELS.md) for a complete list of supported models.
+
 ### Exporting a model to Core ML
 
 <!--
@@ -483,29 +485,11 @@ If the Core ML export fails, you have a couple of options:
 
 ### Known issues
 
-#### Bugs and limitations
-
 The Core ML exporter writes models in the **mlpackage** format. Unfortunately, for some models the generated ML Program is incorrect, in which case it's recommended to convert the model to the older NeuralNetwork format by setting the configuration object's `use_legacy_format` property to `True`. On certain hardware, the older format may also run more efficiently. If you're not sure which one to use, export the model twice and compare the two versions.
 
 Known models that need to be exported with `use_legacy_format=True` are: GPT2, DistilGPT2.
 
 Using flexible input sequence length with GPT2 or GPT-Neo causes the converter to be extremely slow and allocate over 200 GB of RAM. This is clearly a bug in coremltools or the Core ML framework, as the allocated memory is never used (the computer won't start swapping). After many minutes, the conversion does succeed, but the model may not be 100% correct. Loading the model afterwards takes a very long time and makes similar memory allocations. Likewise for making predictions. While theoretically the conversion succeeds (if you have enough patience), the model is not really usable like this.
-
-#### Unsupported models
-
-The following models are known to give errors when attempting conversion to Core ML format:
-
-- [BLOOM](https://huggingface.co/docs/transformers/main/en/model_doc/bloom). Conversion error on a slicing operation.
-- [DETR](https://huggingface.co/docs/transformers/main/model_doc/detr). The conversion completes without errors but the Core ML compiler cannot load the model.
-- [Data2VecAudio](https://huggingface.co/docs/transformers/main/en/model_doc/data2vec). Same issue as DETR.
-- [GPT-Neo](https://huggingface.co/docs/transformers/main/en/model_doc/gpt_neo) gives no errors during conversion but predicts wrong results, or NaN when `use_legacy_format=True`.
-- [GroupViT](https://huggingface.co/docs/transformers/main/model_doc/groupvit). Conversion issue with `scatter_along_axis` operation. Did not investigate in detail yet.
-- [Speech2Text](https://huggingface.co/docs/transformers/main/en/model_doc/speech_to_text). The "glu" op is not supported by coremltools. Should be possible to solve by defining a `@register_torch_op` function.
-- [Swin Transformer](https://huggingface.co/docs/transformers/main/model_doc/swin). The PyTorch graph contains unsupported operations: remainder, roll, adaptive_avg_pool1d.
-- [T5](https://huggingface.co/docs/transformers/main/model_doc/t5). The PyTorch graph contains unsupported operations.
-- [UniSpeech](https://huggingface.co/docs/transformers/main/en/model_doc/unispeech). Missing op for `_weight_norm` (possible to work around), also same Core ML compiler error as DETR.
-- [Wav2Vec2](https://huggingface.co/docs/transformers/main/en/model_doc/wav2vec2), [HuBERT](https://huggingface.co/docs/transformers/main/en/model_doc/hubert), [SEW](https://huggingface.co/docs/transformers/main/en/model_doc/sew): Unsupported op for `nn.GroupNorm` (should be possible to solve), invalid broadcasting operations (will be harder to solve), and most likely additional issues.
-- [WavLM](https://huggingface.co/docs/transformers/main/en/model_doc/wavlm). Missing ops for `_weight_norm`, `add_`, `full_like`.
 
 ## TensorFlow Lite
 
