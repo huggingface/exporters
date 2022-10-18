@@ -182,13 +182,6 @@ class CoreMLConfig():
             return OrderedDict(
                 [
                     (
-                        "encoder_last_hidden_state",
-                        InputDescription(
-                            "encoder_last_hidden_state",
-                            "Sequence of hidden states at the output of the last layer of the encoder",
-                        )
-                    ),
-                    (
                         "input_ids",
                         InputDescription(
                             "decoder_input_ids",
@@ -200,6 +193,13 @@ class CoreMLConfig():
                         InputDescription(
                             "decoder_attention_mask",
                             "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                    (
+                        "encoder_last_hidden_state",
+                        InputDescription(
+                            "encoder_last_hidden_state",
+                            "Sequence of hidden states at the output of the last layer of the encoder",
                         )
                     ),
                 ]

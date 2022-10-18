@@ -107,7 +107,6 @@ def get_input_types(
 
     if config.modality == "text":
         input_desc = input_descs["input_ids"]
-
         default_shape = dummy_inputs["input_ids"][0].shape
         shape = list(default_shape)
 
@@ -145,7 +144,7 @@ def get_input_types(
             shape = list(dummy_inputs["encoder_last_hidden_state"][0].shape)
             shape[1] = ct.RangeDim()
             input_types.append(
-                ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.int32)
+                ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)
             )
 
         if config.use_past:
@@ -245,9 +244,9 @@ if is_torch_available():
                 model_kwargs["past_key_values"] = past_key_values
 
             if self.config.seq2seq == "decoder":
-                model_kwargs["encoder_outputs"] = (all_inputs[0],)
-                model_kwargs["decoder_input_ids"] = all_inputs[1]
-                model_kwargs["decoder_attention_mask"] = all_inputs[2]
+                model_kwargs["decoder_input_ids"] = all_inputs[0]
+                model_kwargs["decoder_attention_mask"] = all_inputs[1]
+                model_kwargs["encoder_outputs"] = (all_inputs[2],)
             elif self.config.modality == "text":
                 if remaining >= 2:
                     model_kwargs["attention_mask"] = all_inputs[1]

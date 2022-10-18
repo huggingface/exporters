@@ -158,7 +158,7 @@ ALBERT
 
 - ? BartModel
 - ❌ BartForCausalLM: Conversion succeeds, but "Error computing NN outputs".
-- ❌ BartForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+- ❌ BartForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 - ? BartForQuestionAnswering
 - ? BartForSequenceClassification
 
@@ -179,15 +179,15 @@ Bertweet
 **BigBirdPegasus**
 
 - ❌ BigBirdPegasusForCausalLM: Core ML error "Error computing NN outputs"
-- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **Blenderbot**
 
-- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **Blenderbot Small**
 
-- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (`use_past=False`). Decoder error in my `expand` op workaround.
+- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **BLOOM** [TODO verify] Conversion error on a slicing operation.
 
@@ -279,11 +279,11 @@ LUKE
 
 **M2M100**
 
-- ❌ M2M100ForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+- ❌ M2M100ForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **MarianMT**
 
-- ❌ MarianMTModel: Encoder converts OK. Decoder error in my `expand` op workaround.
+- ❌ MarianMTModel: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 MarkupLM
 
@@ -303,7 +303,7 @@ MPNet
 
 **MVP**
 
-- ❌ MvpForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+- ❌ MvpForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **NEZHA** [TODO verify] Conversion error on a slicing operation.
 
@@ -315,7 +315,7 @@ Nyströmformer
 
 **Pegasus**
 
-- ❌ PegasusForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+- ❌ PegasusForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **PEGASUS-X**
 
@@ -325,7 +325,7 @@ PhoBERT
 
 **PLBart**
 
-- ❌ PLBartForConditionalGeneration: Encoder converts OK. Decoder error in my `expand` op workaround.
+- ❌ PLBartForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **ProphetNet**
 
