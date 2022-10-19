@@ -87,17 +87,20 @@ class BertCoreMLConfig(CoreMLConfig):
     modality = "text"
 
     @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
-        input_descs = super().inputs
-        # TODO: BERT gives conversion error with flexible input shape.
-        input_descs["input_ids"].sequence_length = 128
-        return input_descs
-
-    @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
         output_descs = super().outputs
         self._add_pooler_output(output_descs)
         return output_descs
+
+    def patch_pytorch_ops(self):
+        if self.task == "causal-lm":
+            return patch_common_pytorch_ops()
+        else:
+            return {}
+
+    @property
+    def use_legacy_format(self):
+        return self.task == "causal-lm"
 
 
 class BigBirdCoreMLConfig(CoreMLConfig):
@@ -106,6 +109,7 @@ class BigBirdCoreMLConfig(CoreMLConfig):
     def patch_pytorch_ops(self):
         return patch_common_pytorch_ops()
 
+    @property
     def use_legacy_format(self):
         return True
 

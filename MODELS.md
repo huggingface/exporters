@@ -43,8 +43,7 @@ Legend:
 - ✅ BertForQuestionAnswering
 - ✅ BertForSequenceClassification
 - ✅ BertForTokenClassification
-- ⚠️ BertLMHeadModel
-    - ❌ when `use_past=True`, "AttributeError: 'list' object has no attribute 'val'" on `repeat` op
+- 😓 BertLMHeadModel: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
 
 **BigBird**
 
