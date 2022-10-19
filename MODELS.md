@@ -126,6 +126,12 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 - ? RoFormerForTokenClassification
 - ? RoFormerForQuestionAnswering
 
+**Splinter**
+
+- 😓 SplinterModel: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ➖ SplinterForPreTraining
+- SplinterForQuestionAnswering
+
 **SqueezeBERT**
 
 - ✅ SqueezeBertModel
@@ -387,10 +393,6 @@ REALM
 - ❌ RemBertForCausalLM. Conversion to MIL succeeds after a long time but running the model gives "Error in declaring network." When using legacy mode, the model is too large to fit into protobuf.
 
 RetriBERT
-
-**Splinter**
-
-- ❌ SplinterModel: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also error adding a constant value to the MIL graph?
 
 **T5**
 

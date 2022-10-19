@@ -325,6 +325,17 @@ class SegformerCoreMLConfig(CoreMLConfig):
     modality = "vision"
 
 
+class SplinterCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops()
+
+    @property
+    def use_legacy_format(self):
+        return True
+
+
 class SqueezeBertCoreMLConfig(CoreMLConfig):
     modality = "text"
 
