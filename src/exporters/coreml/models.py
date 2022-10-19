@@ -22,6 +22,53 @@ from .config import (
 )
 
 
+def patch_common_pytorch_ops():
+    """
+    Workarounds for issues that haven't been fixed yet in coremltools that
+    affect many of our models.
+    """
+    from coremltools.converters.mil import Builder as mb
+    from coremltools.converters.mil.frontend.torch.ops import _broadcast, _get_inputs
+
+    def _broadcast_dynamic(name, tensor, shape):
+        if len(shape) > tensor.rank:
+            new_dims = len(shape) - tensor.rank
+            tensor = mb.expand_dims(x=tensor, axes=list(range(new_dims)))
+
+        shape[0] = 1
+        shape[-1] = 1
+
+        reps = mb.concat(values=shape, axis=0)
+        res = mb.tile(x=tensor, reps=reps, name=name)
+        return res
+
+    def expand(context, node):
+        inputs = _get_inputs(context, node, expected=[2, 3])
+
+        x = inputs[0]
+        shape = inputs[1]
+        if isinstance(shape, list):
+            res = _broadcast_dynamic(node.name, x, shape)
+            context.add(res)
+        else:
+            res = _broadcast(node.name, x, shape.val)
+            context.add(res)
+
+    def repeat(context, node):
+        x = context[node.inputs[0]]
+        reps = context[node.inputs[1]]
+
+        if isinstance(reps, list):
+            res = _broadcast_dynamic(node.name, x, reps)
+            context.add(res)
+        else:
+            if len(reps.val) > len(x.shape):
+                x = mb.expand_dims(x=x, axes=list(range(len(reps.val) - x.rank)))
+            context.add(mb.tile(x=x, reps=reps, name=node.name))
+
+    return {"expand": expand, "repeat": repeat}
+
+
 class BeitCoreMLConfig(CoreMLConfig):
     modality = "vision"
 
@@ -51,6 +98,16 @@ class BertCoreMLConfig(CoreMLConfig):
         output_descs = super().outputs
         self._add_pooler_output(output_descs)
         return output_descs
+
+
+class BigBirdCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops()
+
+    def use_legacy_format(self):
+        return True
 
 
 class ConvNextCoreMLConfig(CoreMLConfig):

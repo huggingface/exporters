@@ -25,6 +25,7 @@ If a model is not supported, this is either because there is some problem with t
 Legend:
 
 - ✅ = fully supported
+- 😓 = works but with hacks
 - ⚠️ = partially supported (for example no "with past" version)
 - ❌ = errors during conversion
 - ➖ = not supported
@@ -44,6 +45,17 @@ Legend:
 - ✅ BertForTokenClassification
 - ⚠️ BertLMHeadModel
     - ❌ when `use_past=True`, "AttributeError: 'list' object has no attribute 'val'" on `repeat` op
+
+**BigBird**
+
+- ? BigBirdModel
+- ➖ BigBirdForPreTraining
+- 😓 BigBirdForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ? BigBirdForMaskedLM
+- ? BigBirdForMultipleChoice
+- ? BigBirdForQuestionAnswering
+- ? BigBirdForSequenceClassification
+- ? BigBirdForTokenClassification
 
 **CTRL**
 
@@ -158,7 +170,7 @@ ALBERT
 
 - ? BartModel
 - ❌ BartForCausalLM: Conversion succeeds, but "Error computing NN outputs".
-- ❌ BartForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ BartForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 - ? BartForQuestionAnswering
 - ? BartForSequenceClassification
 
@@ -172,22 +184,18 @@ BertJapanese
 
 Bertweet
 
-**BigBird**
-
-- ❌ BigBirdForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op
-
 **BigBirdPegasus**
 
 - ❌ BigBirdPegasusForCausalLM: Core ML error "Error computing NN outputs"
-- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **Blenderbot**
 
-- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **Blenderbot Small**
 
-- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (`use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **BLOOM** [TODO verify] Conversion error on a slicing operation.
 
@@ -279,11 +287,11 @@ LUKE
 
 **M2M100**
 
-- ❌ M2M100ForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ M2M100ForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **MarianMT**
 
-- ❌ MarianMTModel: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ MarianMTModel: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 MarkupLM
 
@@ -303,7 +311,7 @@ MPNet
 
 **MVP**
 
-- ❌ MvpForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ MvpForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **NEZHA** [TODO verify] Conversion error on a slicing operation.
 
@@ -315,7 +323,7 @@ Nyströmformer
 
 **Pegasus**
 
-- ❌ PegasusForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ PegasusForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **PEGASUS-X**
 
@@ -325,7 +333,7 @@ PhoBERT
 
 **PLBart**
 
-- ❌ PLBartForConditionalGeneration: Encoder converts OK. Decoder gives "Error computing NN outputs" with flexible sequence length.
+- ❌ PLBartForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **ProphetNet**
 

@@ -403,6 +403,12 @@ This adds multiple new inputs and outputs to the model with names such as `past_
 
 Enabling this option makes the model less convenient to use, since you will have to keep track of many additional tensors, but it does make inference much faster on sequences.
 
+The Transformers model must be loaded with `is_decoder=True`, for example:
+
+```python
+base_model = BigBirdForCausalLM.from_pretrained("google/bigbird-roberta-base", torchscript=True, is_decoder=True)
+```
+
 TODO: Example of how to use this in Core ML. The `past_key_values` tensors will grow larger over time. The `attention_mask` tensor must have the size of `past_key_values` plus new `input_ids`.
 
 #### Exporting an encoder-decoder model
