@@ -299,6 +299,17 @@ class MobileViTCoreMLConfig(CoreMLConfig):
         return output_descs
 
 
+class RobertaCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
+
+    @property
+    def use_legacy_format(self):
+        return self.task == "causal-lm"
+
+
 class SegformerCoreMLConfig(CoreMLConfig):
     modality = "vision"
 
