@@ -181,6 +181,17 @@ class CvtCoreMLConfig(CoreMLConfig):
         return 0.01
 
 
+class Data2VecTextCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
+
+    @property
+    def use_legacy_format(self):
+        return self.task == "causal-lm"
+
+
 class DistilBertCoreMLConfig(CoreMLConfig):
     modality = "text"
 
