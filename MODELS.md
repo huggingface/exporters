@@ -71,6 +71,19 @@ Legend:
 - ✅ DistilBertForSequenceClassification
 - ✅ DistilBertForTokenClassification
 
+
+**ERNIE**
+
+- ? ErnieModel
+- ➖ ErnieForPreTraining
+- 😓 ErnieForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ? ErnieForMaskedLM
+- ? ErnieForMultipleChoice
+- ? ErnieForNextSentencePrediction
+- ? ErnieForQuestionAnswering
+- ? ErnieForSequenceClassification
+- ? ErnieForTokenClassification
+
 **GPT2 / DistilGPT2**
 
 Needs to be exported with `use_legacy_format=True`. Does not work with flexible sequence length and therefore does not support `use_past`.
@@ -222,13 +235,9 @@ DPR
 
 **ELECTRA**
 
-- ❌ ElectraForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op.
+- ❌ ElectraForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also, `coreml_config.values_override` doesn't work to set `use_cache` to True for this model.
 
 Encoder Decoder Models
-
-**ERNIE**
-
-- ❌ ErnieForCausalLM: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op. Also conversion error on a slicing operation?
 
 ESM
 

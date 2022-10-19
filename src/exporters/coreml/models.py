@@ -93,10 +93,7 @@ class BertCoreMLConfig(CoreMLConfig):
         return output_descs
 
     def patch_pytorch_ops(self):
-        if self.task == "causal-lm":
-            return patch_common_pytorch_ops()
-        else:
-            return {}
+        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
 
     @property
     def use_legacy_format(self):
@@ -107,11 +104,11 @@ class BigBirdCoreMLConfig(CoreMLConfig):
     modality = "text"
 
     def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops()
+        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
 
     @property
     def use_legacy_format(self):
-        return True
+        return self.task == "causal-lm"
 
 
 class ConvNextCoreMLConfig(CoreMLConfig):
@@ -211,6 +208,17 @@ class DistilBertCoreMLConfig(CoreMLConfig):
             )
         else:
             return super().inputs
+
+
+class ErnieCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
+
+    @property
+    def use_legacy_format(self):
+        return self.task == "causal-lm"
 
 
 class GPT2CoreMLConfig(CoreMLConfig):
