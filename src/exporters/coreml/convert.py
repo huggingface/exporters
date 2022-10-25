@@ -83,6 +83,25 @@ def is_image_std_same(preprocessor: "FeatureExtractionMixin") -> bool:
     return preprocessor.image_std[0] == preprocessor.image_std[1] == preprocessor.image_std[2]
 
 
+def get_shape(config, input_desc, dummy_input, axis=-1):
+    """
+    Returns the ct.Shape object for the given input.
+    """
+    default_shape = dummy_input[0].shape
+    shape = list(default_shape)
+
+    # Does the input shape need to be flexible?
+    if config.use_past or config.seq2seq:
+        shape[axis] = ct.RangeDim()
+        default_shape = None
+    elif isinstance(input_desc.sequence_length, tuple):
+        min_length, max_length = input_desc.sequence_length
+        shape[axis] = ct.RangeDim(min_length, max_length)
+        default_shape = None
+
+    return ct.Shape(shape, default=default_shape)
+
+
 def get_input_types(
     preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
     config: CoreMLConfig,
@@ -105,20 +124,10 @@ def get_input_types(
     input_descs = config.inputs
     input_types = []
 
-    if config.modality == "text":
+    if config.modality == "text" or config.seq2seq == "decoder":
         input_desc = input_descs["input_ids"]
-        default_shape = dummy_inputs["input_ids"][0].shape
-        shape = list(default_shape)
-
-        # Does the input shape need to be flexible?
-        if config.use_past or config.seq2seq:
-            shape[-1] = ct.RangeDim()
-            default_shape = None
-        elif isinstance(input_desc.sequence_length, tuple):
-            min_length, max_length = input_desc.sequence_length
-            shape[-1] = ct.RangeDim(min_length, max_length)
-
-        shape = ct.Shape(shape, default=default_shape)
+        dummy_input = dummy_inputs["input_ids"]
+        shape = get_shape(config, input_desc, dummy_input)
         input_types.append(
             ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
         )
@@ -156,7 +165,7 @@ def get_input_types(
                 input_types.append(ct.TensorType(name=f"past_key_values_{i}_key", shape=shape))
                 input_types.append(ct.TensorType(name=f"past_key_values_{i}_value", shape=shape))
 
-    if config.modality == "vision":
+    elif config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
             bias = [
                 -preprocessor.image_mean[0],
@@ -197,6 +206,34 @@ def get_input_types(
                     dtype=np.int32
                 )
             )
+
+    elif config.modality == "audio":
+        if "input_features" in input_descs:
+            input_desc = input_descs["input_features"]
+            dummy_input = dummy_inputs["input_features"]
+            shape = get_shape(config, input_desc, dummy_input, axis=1)
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+            )
+        else:
+            input_desc = input_descs["input_values"]
+            dummy_input = dummy_inputs["input_values"]
+            shape = get_shape(config, input_desc, dummy_input, axis=1)
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.float32)
+            )
+
+        if "attention_mask" in input_descs:
+            input_desc = input_descs["attention_mask"]
+            attn_shape = list(dummy_inputs["attention_mask"][0].shape)
+            if isinstance(shape.shape[1], ct.RangeDim):
+                attn_shape[-1] = shape.shape[1]
+
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=ct.Shape(attn_shape), dtype=np.int32)
+            )
+        else:
+            logger.info("Skipping attention_mask input")
 
     return input_types
 
@@ -290,11 +327,13 @@ if is_torch_available():
 
             if self.config.seq2seq != "encoder" and self.config.task in [
                 "causal-lm",
+                "ctc",
                 "masked-lm",
                 "multiple-choice",
                 "next-sentence-prediction",
                 "seq2seq-lm",
                 "sequence-classification",
+                "speech-seq2seq",
                 "token-classification",
             ]:
                 output_desc = output_descs["logits"]
@@ -328,7 +367,7 @@ if is_torch_available():
                     x = x.argmax(1)
                 return x
 
-            if self.config.seq2seq == "encoder" and self.config.task == "seq2seq-lm":
+            if self.config.seq2seq == "encoder" and self.config.task in ["seq2seq-lm", "speech-seq2seq"]:
                 return outputs[0]  # last_hidden_state
 
             if self.config.task == "default":
@@ -509,7 +548,7 @@ def export_pytorch(
 
 
 def export_tensorflow(
-    preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin"],
+    preprocessor: Union["PreTrainedTokenizer", "FeatureExtractionMixin", "ProcessorMixin"],
     model: "TFPreTrainedModel",
     config: CoreMLConfig,
     quantize: str = "float32",
@@ -519,7 +558,7 @@ def export_tensorflow(
     Export a TensorFlow model to Core ML format.
 
     Args:
-        preprocessor ([`PreTrainedTokenizer`] or [`FeatureExtractionMixin`]):
+        preprocessor ([`PreTrainedTokenizer`] or [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
             The preprocessor used for encoding the data.
         model ([`TFPreTrainedModel`]):
             The model to export.

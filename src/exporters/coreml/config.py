@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from transformers.configuration_utils import PretrainedConfig
     from transformers.feature_extraction_utils import FeatureExtractionMixin
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+    from transformers.processing_utils import ProcessorMixin
 
 
 if is_vision_available():
@@ -178,7 +179,7 @@ class CoreMLConfig():
 
     @property
     def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
-        if self.modality == "text" and self.seq2seq == "decoder":
+        if self.modality in ["text", "audio"] and self.seq2seq == "decoder":
             return OrderedDict(
                 [
                     (
@@ -303,6 +304,39 @@ class CoreMLConfig():
                 ]
             )
 
+        if self.modality == "audio":
+            if self._get_mel_bins() > 0:
+                audio_input = (
+                    "input_features",
+                    InputDescription(
+                        "input_features",
+                        "Mel features extracted from the raw speech waveform",
+                        sequence_length=(1, -1),
+                    )
+                )
+            else:
+                audio_input =  (
+                    "input_values",
+                    InputDescription(
+                        "input_values",
+                        "Raw speech waveform",
+                        sequence_length=(1, -1),
+                    )
+                )
+
+            return OrderedDict(
+                [
+                    audio_input,
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                ]
+            )
+
         raise AssertionError(f"Unsupported task '{self.task}' for modality '{self.modality}'")
 
     @property
@@ -372,7 +406,14 @@ class CoreMLConfig():
                 ]
             )
 
-        if self.task in ["causal-lm", "masked-lm", "seq2seq-lm", "token-classification"]:
+        if self.task in [
+            "causal-lm",
+            "ctc",
+            "masked-lm",
+            "seq2seq-lm",
+            "speech-seq2seq",
+            "token-classification"
+        ]:
             return OrderedDict(
                 [
                     (
@@ -457,17 +498,27 @@ class CoreMLConfig():
         output_shapes = {}
 
         # Only tasks that output a sequence need a flexible output shape.
-        if self.task in ["default", "causal-lm", "masked-lm", "question-answering", "seq2seq-lm", "token-classification"]:
+        if self.task in [
+            "default",
+            "causal-lm",
+            "ctc",
+            "masked-lm",
+            "question-answering",
+            "seq2seq-lm",
+            "speech-seq2seq",
+            "token-classification",
+        ]:
             input_descs = self.inputs
             output_descs = self.outputs
 
             # If this model has flexible input shapes, it also needs flexible output shapes.
+            min_length, max_length = None, None
             if self.use_past or self.seq2seq:
                 min_length, max_length = 1, -1
-            elif "input_ids" in input_descs and isinstance(input_descs["input_ids"].sequence_length, tuple):
-                min_length, max_length = input_descs["input_ids"].sequence_length
             else:
-                min_length, max_length = None, None
+                sequence_length = self.get_input_sequence_length(input_descs)
+                if isinstance(sequence_length, tuple):
+                    min_length, max_length = sequence_length
 
             if min_length is not None:
                 for key in ["encoder_last_hidden_state", "last_hidden_state", "logits", "start_logits", "end_logits"]:
@@ -480,6 +531,16 @@ class CoreMLConfig():
                 output_shapes[f"present_{i}_value"] = [{ "axis": 2, "min": 1, "max": -1 }]
 
         return output_shapes
+
+    def get_input_sequence_length(self, input_descs):
+        if "input_ids" in input_descs:
+            return input_descs["input_ids"].sequence_length
+        elif "input_values" in input_descs:
+            return input_descs["input_values"].sequence_length
+        elif "input_features" in input_descs:
+            return input_descs["input_features"].sequence_length
+        else:
+            return None
 
     @property
     def num_layers(self) -> int:
@@ -624,7 +685,7 @@ class CoreMLConfig():
 
     def _generate_dummy_image(
         self,
-        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
+        preprocessor: "FeatureExtractionMixin",
         framework: Optional[TensorType] = None,
     ) -> Tuple[Any, Any]:
         if hasattr(preprocessor, "crop_size") and preprocessor.do_center_crop:
@@ -661,19 +722,38 @@ class CoreMLConfig():
 
         return (ref_value, coreml_value)
 
+    def _get_max_sequence_length(self, input_desc, default_length):
+        if input_desc.sequence_length is None:
+            return default_length
+        elif isinstance(input_desc.sequence_length, tuple):
+            sequence_length = input_desc.sequence_length[-1]
+            if sequence_length == -1:
+                sequence_length = default_length
+            return sequence_length
+        else:
+            return input_desc.sequence_length
+
+    def _get_mel_bins(self):
+        if hasattr(self._config, "num_mel_bins"):
+            return self._config.num_mel_bins
+        elif hasattr(self._config, "input_feat_per_channel"):
+            return self._config.input_feat_per_channel
+        else:
+            return 0
+
     def generate_dummy_inputs(
         self,
-        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin"],
+        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin", "ProcessorMixin"],
         framework: Optional[TensorType] = None,
     ) -> Mapping[str, Tuple[Any, Any]]:
         """
         Generate dummy input data to provide to the Core ML exporter.
 
         Args:
-            preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`]):
+            preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
                 The preprocessor associated with this model configuration.
             framework (`TensorType`, *optional*, defaults to `None`):
-                The framework (PyTorch or TensorFlow) that the tokenizer will generate tensors for.
+                The framework (PyTorch or TensorFlow) that the preprocessor will generate tensors for.
 
         Returns:
             `Mapping[str, Tuple[Any, Any]]` holding tuples containing the reference and
@@ -681,6 +761,7 @@ class CoreMLConfig():
         """
         from transformers.feature_extraction_utils import FeatureExtractionMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+        from transformers.processing_utils import ProcessorMixin
 
         input_descs = self.inputs
         dummy_inputs = {}
@@ -689,12 +770,7 @@ class CoreMLConfig():
             input_desc = input_descs["input_ids"]
 
             # the dummy input will always use the maximum sequence length
-            if input_desc.sequence_length is None:
-                sequence_length = 64
-            elif isinstance(input_desc.sequence_length, tuple):
-                sequence_length = input_desc.sequence_length[-1]
-            else:
-                sequence_length = input_desc.sequence_length
+            sequence_length = self._get_max_sequence_length(input_desc, 64)
 
             if self.task == "multiple-choice":
                 shape = (1, self._config.num_labels, sequence_length)
@@ -727,6 +803,45 @@ class CoreMLConfig():
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
                 bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
                 dummy_inputs["bool_masked_pos"] = (bool_masked_pos, bool_masked_pos.astype(np.int32))
+
+        elif self.modality == "audio" and isinstance(preprocessor, ProcessorMixin):
+            if self.seq2seq != "encoder":
+                if "input_features" in input_descs:
+                    mel_bins = self._get_mel_bins()
+                    if mel_bins == 0:
+                        raise ValueError("Cannot determine number of mel bins from model config")
+
+                    # TODO: some models (e.g. Whisper) may put the mel bins on another axis
+
+                    input_desc = input_descs["input_features"]  # mel filterbanks
+                    sequence_length = self._get_max_sequence_length(input_desc, 200)
+                    input_features = np.random.rand(1, sequence_length, mel_bins).astype(np.float32)
+                    dummy_inputs["input_features"] = (input_features, input_features)
+                else:
+                    input_desc = input_descs["input_values"]  # raw audio
+                    sequence_length = self._get_max_sequence_length(input_desc, 50000)
+                    input_features = np.random.rand(1, sequence_length).astype(np.float32) * 2.0 - 1.0
+                    dummy_inputs["input_values"] = (input_features, input_features)
+
+                if "attention_mask" in input_descs:
+                    attention_mask = np.ones((1, sequence_length), dtype=np.int64)
+                    dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+
+            else:  # decoder
+                input_desc = input_descs["input_ids"]
+                sequence_length = 64
+                shape = (1, sequence_length)
+
+                input_ids = np.random.randint(0, preprocessor.tokenizer.vocab_size, shape)
+                dummy_inputs["input_ids"] = (input_ids, input_ids.astype(np.int32))
+
+                if "attention_mask" in input_descs:
+                    attention_mask = np.ones(shape, dtype=np.int64)
+                    dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+
+                if "encoder_last_hidden_state" in input_descs:
+                    last_hidden_state = np.zeros((1, self._config.max_source_positions, self._config.hidden_size), dtype=np.float32)
+                    dummy_inputs["encoder_last_hidden_state"] = (last_hidden_state, last_hidden_state)
 
         else:
             raise ValueError(

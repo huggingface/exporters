@@ -31,6 +31,7 @@ if is_torch_available():
     from transformers.models.auto import (
         AutoModel,
         AutoModelForCausalLM,
+        AutoModelForCTC,
         AutoModelForImageClassification,
         # AutoModelForImageSegmentation,
         AutoModelForMaskedImageModeling,
@@ -42,6 +43,7 @@ if is_torch_available():
         AutoModelForSeq2SeqLM,
         AutoModelForSemanticSegmentation,
         AutoModelForSequenceClassification,
+        AutoModelForSpeechSeq2Seq,
         AutoModelForTokenClassification,
     )
 if is_tf_available():
@@ -101,6 +103,7 @@ class FeaturesManager:
         _TASKS_TO_AUTOMODELS = {
             "default": AutoModel,
             "causal-lm": AutoModelForCausalLM,
+            "ctc": AutoModelForCTC,
             "image-classification": AutoModelForImageClassification,
             # "image-segmentation": AutoModelForImageSegmentation,
             "masked-im": AutoModelForMaskedImageModeling,
@@ -112,6 +115,7 @@ class FeaturesManager:
             "semantic-segmentation": AutoModelForSemanticSegmentation,
             "seq2seq-lm": AutoModelForSeq2SeqLM,
             "sequence-classification": AutoModelForSequenceClassification,
+            "speech-seq2seq": AutoModelForSpeechSeq2Seq,
             "token-classification": AutoModelForTokenClassification,
         }
     if is_tf_available():

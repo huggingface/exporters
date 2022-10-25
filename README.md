@@ -149,21 +149,23 @@ TODO: also TFAutoModel example
 
 Each ready-made configuration comes with a set of _features_ that enable you to export models for different types of topologies or tasks. As shown in the table below, each feature is associated with a different auto class:
 
-| Feature                              | Auto Class                           |
-| ------------------------------------ | ------------------------------------ |
-| `default`, `default-with-past`       | `AutoModel`                          |
-| `causal-lm`, `causal-lm-with-past`   | `AutoModelForCausalLM`               |
-| `image-classification`               | `AutoModelForImageClassification`    |
-| `masked-im`                          | `AutoModelForMaskedImageModeling`    |
-| `masked-lm`                          | `AutoModelForMaskedLM`               |
-| `multiple-choice`                    | `AutoModelForMultipleChoice`         |
-| `next-sentence-prediction`           | `AutoModelForNextSentencePrediction` |
-| `object-detection`                   | `AutoModelForObjectDetection`        |
-| `question-answering`                 | `AutoModelForQuestionAnswering`      |
-| `semantic-segmentation`              | `AutoModelForSemanticSegmentation`   |
-| `seq2seq-lm`, `seq2seq-lm-with-past` | `AutoModelForSeq2SeqLM`              |
-| `sequence-classification`            | `AutoModelForSequenceClassification` |
-| `token-classification`               | `AutoModelForTokenClassification`    |
+| Feature                                      | Auto Class                           |
+| -------------------------------------------- | ------------------------------------ |
+| `default`, `default-with-past`               | `AutoModel`                          |
+| `causal-lm`, `causal-lm-with-past`           | `AutoModelForCausalLM`               |
+| `ctc`                                        | `AutoModelForCTC`                    |
+| `image-classification`                       | `AutoModelForImageClassification`    |
+| `masked-im`                                  | `AutoModelForMaskedImageModeling`    |
+| `masked-lm`                                  | `AutoModelForMaskedLM`               |
+| `multiple-choice`                            | `AutoModelForMultipleChoice`         |
+| `next-sentence-prediction`                   | `AutoModelForNextSentencePrediction` |
+| `object-detection`                           | `AutoModelForObjectDetection`        |
+| `question-answering`                         | `AutoModelForQuestionAnswering`      |
+| `semantic-segmentation`                      | `AutoModelForSemanticSegmentation`   |
+| `seq2seq-lm`, `seq2seq-lm-with-past`         | `AutoModelForSeq2SeqLM`              |
+| `sequence-classification`                    | `AutoModelForSequenceClassification` |
+| `speech-seq2seq`, `speech-seq2seq-with-past` | `AutoModelForSpeechSeq2Seq`          |
+| `token-classification`                       | `AutoModelForTokenClassification`    |
 
 For each configuration, you can find the list of supported features via the `FeaturesManager`. For example, for DistilBERT we have:
 
@@ -296,6 +298,8 @@ class MyCoreMLConfig(DistilBertCoreMLConfig):
 
 config = MyCoreMLConfig(model.config, "sequence-classification")
 ```
+
+Using a fixed sequence length generally outputs a simpler, and possibly faster, Core ML model. However, for many models the input needs to have a flexible length. In that case, specify a tuple for `sequence_length` to set the (min, max) lengths. Use (1, -1) to have no upper limit on the sequence length.
 
 To find out what input and output options are available for the model you're interested in, create its `CoreMLConfig` object and examine the `config.inputs` and `config.outputs` properties.
 
