@@ -125,20 +125,27 @@ def get_input_types(
     input_types = []
 
     if config.modality == "text" or config.seq2seq == "decoder":
-        input_desc = input_descs["input_ids"]
-        dummy_input = dummy_inputs["input_ids"]
+        if config.seq2seq == "decoder":
+            input_ids_name = "decoder_input_ids"
+            attention_mask_name = "decoder_attention_mask"
+        else:
+            input_ids_name = "input_ids"
+            attention_mask_name = "attention_mask"
+
+        input_desc = input_descs[input_ids_name]
+        dummy_input = dummy_inputs[input_ids_name]
         shape = get_shape(config, input_desc, dummy_input)
         input_types.append(
             ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
         )
 
-        if "attention_mask" in input_descs:
-            input_desc = input_descs["attention_mask"]
+        if attention_mask_name in input_descs:
+            input_desc = input_descs[attention_mask_name]
             input_types.append(
                 ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
         else:
-            logger.info("Skipping attention_mask input")
+            logger.info(f"Skipping {attention_mask_name} input")
 
         if "token_type_ids" in input_descs:
             input_desc = input_descs["token_type_ids"]
@@ -148,9 +155,9 @@ def get_input_types(
         else:
             logger.info("Skipping token_type_ids input")
 
-        if "encoder_last_hidden_state" in input_descs:
-            input_desc = input_descs["encoder_last_hidden_state"]
-            shape = list(dummy_inputs["encoder_last_hidden_state"][0].shape)
+        if "encoder_outputs" in input_descs:
+            input_desc = input_descs["encoder_outputs"]
+            shape = list(dummy_inputs["encoder_outputs"][0].shape)
             shape[1] = ct.RangeDim()
             input_types.append(
                 ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)

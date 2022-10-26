@@ -104,7 +104,6 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 - ✅ MobileBertForSequenceClassification
 - ✅ MobileBertForTokenClassification
 
-
 **RoBERTa**
 
 - ? RobertaModel
@@ -139,6 +138,12 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 - ✅ SqueezeBertForQuestionAnswering
 - ✅ SqueezeBertForSequenceClassification
 - ✅ SqueezeBertForTokenClassification
+
+**T5**
+
+- ? T5Model
+- ? T5EncoderModel
+- ✅ T5ForConditionalGeneration
 
 ### Vision Models
 
@@ -414,10 +419,6 @@ REALM
 - ❌ RemBertForCausalLM. Conversion to MIL succeeds after a long time but running the model gives "Error in declaring network." When using legacy mode, the model is too large to fit into protobuf.
 
 RetriBERT
-
-**T5**
-
-- ❌ T5ForConditionalGeneration: "AttributeError: 'list' object has no attribute 'val'" in `repeat` op.
 
 T5v1.1
 

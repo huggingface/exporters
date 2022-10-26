@@ -357,6 +357,13 @@ class SqueezeBertCoreMLConfig(CoreMLConfig):
         return output_descs
 
 
+class T5CoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        return patch_common_pytorch_ops()
+
+
 class ViTCoreMLConfig(CoreMLConfig):
     modality = "vision"
 

@@ -80,6 +80,8 @@ def validate_model_outputs(
                 past_key_values.append((ref_value,))
             else:
                 past_key_values[-1] += (ref_value,)
+        elif name == "encoder_outputs":
+            reference_model_inputs[name] = (ref_value,)
         else:
             reference_model_inputs[name] = ref_value
         coreml_inputs[input_descs[name].name] = coreml_value

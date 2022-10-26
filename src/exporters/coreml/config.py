@@ -183,21 +183,21 @@ class CoreMLConfig():
             return OrderedDict(
                 [
                     (
-                        "input_ids",
+                        "decoder_input_ids",
                         InputDescription(
                             "decoder_input_ids",
                             "Indices of decoder input sequence tokens in the vocabulary",
                         )
                     ),
                     (
-                        "attention_mask",
+                        "decoder_attention_mask",
                         InputDescription(
                             "decoder_attention_mask",
                             "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
                         )
                     ),
                     (
-                        "encoder_last_hidden_state",
+                        "encoder_outputs",
                         InputDescription(
                             "encoder_last_hidden_state",
                             "Sequence of hidden states at the output of the last layer of the encoder",
@@ -521,7 +521,7 @@ class CoreMLConfig():
                     min_length, max_length = sequence_length
 
             if min_length is not None:
-                for key in ["encoder_last_hidden_state", "last_hidden_state", "logits", "start_logits", "end_logits"]:
+                for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
                     if key in output_descs:
                         output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
 
@@ -767,7 +767,14 @@ class CoreMLConfig():
         dummy_inputs = {}
 
         if self.modality == "text" and isinstance(preprocessor, PreTrainedTokenizerBase):
-            input_desc = input_descs["input_ids"]
+            if self.seq2seq == "decoder":
+                input_ids_name = "decoder_input_ids"
+                attention_mask_name = "decoder_attention_mask"
+            else:
+                input_ids_name = "input_ids"
+                attention_mask_name = "attention_mask"
+
+            input_desc = input_descs[input_ids_name]
 
             # the dummy input will always use the maximum sequence length
             sequence_length = self._get_max_sequence_length(input_desc, 64)
@@ -778,19 +785,19 @@ class CoreMLConfig():
                 shape = (1, sequence_length)
 
             input_ids = np.random.randint(0, preprocessor.vocab_size, shape)
-            dummy_inputs["input_ids"] = (input_ids, input_ids.astype(np.int32))
+            dummy_inputs[input_ids_name] = (input_ids, input_ids.astype(np.int32))
 
-            if "attention_mask" in input_descs:
+            if attention_mask_name in input_descs:
                 attention_mask = np.ones(shape, dtype=np.int64)
-                dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+                dummy_inputs[attention_mask_name] = (attention_mask, attention_mask.astype(np.int32))
 
             if "token_type_ids" in input_descs:
                 token_type_ids = np.zeros(shape, dtype=np.int64)
                 dummy_inputs["token_type_ids"] = (token_type_ids, token_type_ids.astype(np.int32))
 
-            if "encoder_last_hidden_state" in input_descs:
+            if "encoder_outputs" in input_descs:
                 last_hidden_state = np.zeros((1, sequence_length, self._config.hidden_size), dtype=np.float32)
-                dummy_inputs["encoder_last_hidden_state"] = (last_hidden_state, last_hidden_state)
+                dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
 
         elif (
             self.modality == "vision"
@@ -805,7 +812,7 @@ class CoreMLConfig():
                 dummy_inputs["bool_masked_pos"] = (bool_masked_pos, bool_masked_pos.astype(np.int32))
 
         elif self.modality == "audio" and isinstance(preprocessor, ProcessorMixin):
-            if self.seq2seq != "encoder":
+            if self.seq2seq != "decoder":
                 if "input_features" in input_descs:
                     mel_bins = self._get_mel_bins()
                     if mel_bins == 0:
@@ -828,20 +835,20 @@ class CoreMLConfig():
                     dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
 
             else:  # decoder
-                input_desc = input_descs["input_ids"]
+                input_desc = input_descs["decoder_input_ids"]
                 sequence_length = 64
                 shape = (1, sequence_length)
 
                 input_ids = np.random.randint(0, preprocessor.tokenizer.vocab_size, shape)
-                dummy_inputs["input_ids"] = (input_ids, input_ids.astype(np.int32))
+                dummy_inputs["decoder_input_ids"] = (input_ids, input_ids.astype(np.int32))
 
-                if "attention_mask" in input_descs:
+                if "decoder_attention_mask" in input_descs:
                     attention_mask = np.ones(shape, dtype=np.int64)
-                    dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+                    dummy_inputs["decoder_attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
 
-                if "encoder_last_hidden_state" in input_descs:
+                if "encoder_outputs" in input_descs:
                     last_hidden_state = np.zeros((1, self._config.max_source_positions, self._config.hidden_size), dtype=np.float32)
-                    dummy_inputs["encoder_last_hidden_state"] = (last_hidden_state, last_hidden_state)
+                    dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
 
         else:
             raise ValueError(
