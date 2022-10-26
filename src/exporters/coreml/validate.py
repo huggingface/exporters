@@ -92,6 +92,8 @@ def validate_model_outputs(
     # Compute outputs from the reference model
     if is_torch_available() and issubclass(type(reference_model), PreTrainedModel):
         reference_model.to("cpu").eval()
+    if config.seq2seq == "encoder":
+        reference_model = reference_model.get_encoder()
     ref_outputs_dict = reference_model(**reference_model_inputs, return_dict=True)
 
     # Unpack the past_key_values output into separate outputs, as that is also

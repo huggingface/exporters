@@ -226,6 +226,11 @@ class FeaturesManager:
             "token-classification",
             coreml_config_cls="models.squeezebert.SqueezeBertCoreMLConfig",
         ),
+        "t5": supported_features_mapping(
+            "default",
+            "seq2seq-lm",
+            coreml_config_cls="models.t5.T5CoreMLConfig",
+        ),
         "vit": supported_features_mapping(
             "default", "image-classification", "masked-im", coreml_config_cls="models.vit.ViTCoreMLConfig"
         ),

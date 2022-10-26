@@ -27,6 +27,45 @@ from .features import FeaturesManager
 from .validate import validate_model_outputs
 
 
+def convert_model(preprocessor, model, model_coreml_config, args, seq2seq=None):
+    coreml_config = model_coreml_config(model.config, seq2seq=seq2seq)
+
+    compute_units = ComputeUnit.ALL
+    if args.compute_units == "cpu_and_gpu":
+        compute_units = ComputeUnit.CPU_AND_GPU
+    elif args.compute_units == "cpu_only":
+        compute_units = ComputeUnit.CPU_ONLY
+    elif args.compute_units == "cpu_and_ne":
+        compute_units = ComputeUnit.CPU_AND_NE
+
+    mlmodel = export(
+        preprocessor,
+        model,
+        coreml_config,
+        quantize=args.quantize,
+        compute_units=compute_units,
+    )
+
+    filename = args.output
+    if seq2seq == "encoder":
+        filename = filename.parent / ("encoder_" + filename.name)
+    elif seq2seq == "decoder":
+        filename = filename.parent / ("decoder_" + filename.name)
+    filename = filename.as_posix()
+
+    mlmodel.save(filename)
+
+    if args.atol is None:
+        args.atol = coreml_config.atol_for_validation
+
+    if not _is_macos() or _macos_version() < (12, 0):
+        logger.info("Skipping model validation, requires macOS 12.0 or later")
+    else:
+        validate_model_outputs(coreml_config, preprocessor, model, mlmodel, args.atol)
+
+    logger.info(f"All good, model saved at: {filename}")
+
+
 def main():
     parser = ArgumentParser("Hugging Face Transformers Core ML exporter")
     parser.add_argument(
@@ -84,35 +123,34 @@ def main():
         args.feature, args.model, framework=args.framework, #cache_dir=args.cache_dir
     )
     model_kind, model_coreml_config = FeaturesManager.check_supported_model_or_raise(model, feature=args.feature)
-    coreml_config = model_coreml_config(model.config)
 
-    compute_units = ComputeUnit.ALL
-    if args.compute_units == "cpu_and_gpu":
-        compute_units = ComputeUnit.CPU_AND_GPU
-    elif args.compute_units == "cpu_only":
-        compute_units = ComputeUnit.CPU_ONLY
-    elif args.compute_units == "cpu_and_ne":
-        compute_units = ComputeUnit.CPU_AND_NE
+    if args.feature in ["seq2seq-lm", "speech-seq2seq"]:
+        logger.info(f"Converting encoder model...")
 
-    mlmodel = export(
-        preprocessor,
-        model,
-        coreml_config,
-        quantize=args.quantize,
-        compute_units=compute_units,
-    )
+        convert_model(
+            preprocessor,
+            model,
+            model_coreml_config,
+            args,
+            seq2seq="encoder"
+        )
 
-    mlmodel.save(args.output.as_posix())
+        logger.info(f"Converting decoder model...")
 
-    if args.atol is None:
-        args.atol = coreml_config.atol_for_validation
-
-    if not _is_macos() or _macos_version() < (12, 0):
-        logger.info("Skipping model validation, requires macOS 12.0 or later")
+        convert_model(
+            preprocessor,
+            model,
+            model_coreml_config,
+            args,
+            seq2seq="decoder"
+        )
     else:
-        validate_model_outputs(coreml_config, preprocessor, model, mlmodel, args.atol)
-
-    logger.info(f"All good, model saved at: {args.output.as_posix()}")
+        convert_model(
+            preprocessor,
+            model,
+            model_coreml_config,
+            args,
+        )
 
 
 if __name__ == "__main__":
