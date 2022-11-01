@@ -523,12 +523,21 @@ class CoreMLConfig():
             if min_length is not None:
                 for key in ["last_hidden_state", "logits", "start_logits", "end_logits"]:
                     if key in output_descs:
-                        output_shapes[key] = [{ "axis": 1, "min": min_length, "max": max_length }]
+                        output_shapes[key] = [
+                            #{ "axis": 0, "min": 1, "max": -1 },  # batch size  # TODO
+                            { "axis": 1, "min": min_length, "max": max_length },
+                        ]
 
         if self.use_past:
             for i in range(self.num_layers):
-                output_shapes[f"present_{i}_key"] = [{ "axis": 2, "min": 1, "max": -1 }]
-                output_shapes[f"present_{i}_value"] = [{ "axis": 2, "min": 1, "max": -1 }]
+                output_shapes[f"present_{i}_key"] = [
+                    #{ "axis": 0, "min": 1, "max": -1 },  # batch size  # TODO
+                    { "axis": 2, "min": 1, "max": -1 },
+                ]
+                output_shapes[f"present_{i}_value"] = [
+                    #{ "axis": 0, "min": 1, "max": -1 },  # batch size  # TODO
+                    { "axis": 2, "min": 1, "max": -1 },
+                ]
 
         return output_shapes
 
@@ -763,6 +772,7 @@ class CoreMLConfig():
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
         from transformers.processing_utils import ProcessorMixin
 
+        batch_size = 1
         input_descs = self.inputs
         dummy_inputs = {}
 
@@ -780,9 +790,9 @@ class CoreMLConfig():
             sequence_length = self._get_max_sequence_length(input_desc, 64)
 
             if self.task == "multiple-choice":
-                shape = (1, self._config.num_labels, sequence_length)
+                shape = (batch_size, self._config.num_labels, sequence_length)
             else:
-                shape = (1, sequence_length)
+                shape = (batch_size, sequence_length)
 
             input_ids = np.random.randint(0, preprocessor.vocab_size, shape)
             dummy_inputs[input_ids_name] = (input_ids, input_ids.astype(np.int32))
@@ -796,7 +806,7 @@ class CoreMLConfig():
                 dummy_inputs["token_type_ids"] = (token_type_ids, token_type_ids.astype(np.int32))
 
             if "encoder_outputs" in input_descs:
-                last_hidden_state = np.zeros((1, sequence_length, self._config.hidden_size), dtype=np.float32)
+                last_hidden_state = np.zeros((batch_size, sequence_length, self._config.hidden_size), dtype=np.float32)
                 dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
 
         elif (
@@ -822,22 +832,22 @@ class CoreMLConfig():
 
                     input_desc = input_descs["input_features"]  # mel filterbanks
                     sequence_length = self._get_max_sequence_length(input_desc, 200)
-                    input_features = np.random.rand(1, sequence_length, mel_bins).astype(np.float32)
+                    input_features = np.random.rand(batch_size, sequence_length, mel_bins).astype(np.float32)
                     dummy_inputs["input_features"] = (input_features, input_features)
                 else:
                     input_desc = input_descs["input_values"]  # raw audio
                     sequence_length = self._get_max_sequence_length(input_desc, 50000)
-                    input_features = np.random.rand(1, sequence_length).astype(np.float32) * 2.0 - 1.0
+                    input_features = np.random.rand(batch_size, sequence_length).astype(np.float32) * 2.0 - 1.0
                     dummy_inputs["input_values"] = (input_features, input_features)
 
                 if "attention_mask" in input_descs:
-                    attention_mask = np.ones((1, sequence_length), dtype=np.int64)
+                    attention_mask = np.ones((batch_size, sequence_length), dtype=np.int64)
                     dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
 
             else:  # decoder
                 input_desc = input_descs["decoder_input_ids"]
                 sequence_length = 64
-                shape = (1, sequence_length)
+                shape = (batch_size, sequence_length)
 
                 input_ids = np.random.randint(0, preprocessor.tokenizer.vocab_size, shape)
                 dummy_inputs["decoder_input_ids"] = (input_ids, input_ids.astype(np.int32))

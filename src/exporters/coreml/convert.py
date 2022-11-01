@@ -92,10 +92,12 @@ def get_shape(config, input_desc, dummy_input, axis=-1):
 
     # Does the input shape need to be flexible?
     if config.use_past or config.seq2seq:
+        #shape[0] = ct.RangeDim()  # batch size  #TODO
         shape[axis] = ct.RangeDim()
         default_shape = None
     elif isinstance(input_desc.sequence_length, tuple):
         min_length, max_length = input_desc.sequence_length
+        #shape[0] = ct.RangeDim()  # batch size  #TODO
         shape[axis] = ct.RangeDim(min_length, max_length)
         default_shape = None
 
@@ -158,6 +160,7 @@ def get_input_types(
         if "encoder_outputs" in input_descs:
             input_desc = input_descs["encoder_outputs"]
             shape = list(dummy_inputs["encoder_outputs"][0].shape)
+            #shape[0] = ct.RangeDim()  # batch size  #TODO
             shape[1] = ct.RangeDim()
             input_types.append(
                 ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)
@@ -165,6 +168,7 @@ def get_input_types(
 
         if config.use_past:
             shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
+            #shape[0] = ct.RangeDim()  # batch size  #TODO
             shape[2] = ct.RangeDim(0, -1)
             shape = ct.Shape(shape)
 
@@ -234,6 +238,7 @@ def get_input_types(
             input_desc = input_descs["attention_mask"]
             attn_shape = list(dummy_inputs["attention_mask"][0].shape)
             if isinstance(shape.shape[1], ct.RangeDim):
+                #attn_shape[0] = shape.shape[0]  # batch size  #TODO
                 attn_shape[-1] = shape.shape[1]
 
             input_types.append(

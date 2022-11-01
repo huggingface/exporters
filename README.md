@@ -299,7 +299,7 @@ class MyCoreMLConfig(DistilBertCoreMLConfig):
 config = MyCoreMLConfig(model.config, "sequence-classification")
 ```
 
-Using a fixed sequence length generally outputs a simpler, and possibly faster, Core ML model. However, for many models the input needs to have a flexible length. In that case, specify a tuple for `sequence_length` to set the (min, max) lengths. Use (1, -1) to have no upper limit on the sequence length.
+Using a fixed sequence length generally outputs a simpler, and possibly faster, Core ML model. However, for many models the input needs to have a flexible length. In that case, specify a tuple for `sequence_length` to set the (min, max) lengths. Use (1, -1) to have no upper limit on the sequence length. (Note: if `sequence_length` is set to a fixed value, then the batch size is fixed to 1.)
 
 To find out what input and output options are available for the model you're interested in, create its `CoreMLConfig` object and examine the `config.inputs` and `config.outputs` properties.
 
