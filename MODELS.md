@@ -33,6 +33,14 @@ Legend:
 
 ### Text Models
 
+**BART**
+
+- ? BartModel
+- ✅ BartForCausalLM
+- ⚠️ BartForConditionalGeneration (currently supports only `use_past=False`)
+- ? BartForQuestionAnswering
+- ? BartForSequenceClassification
+
 **BERT**
 
 - ✅ BertModel
@@ -55,6 +63,26 @@ Legend:
 - ? BigBirdForQuestionAnswering
 - ? BigBirdForSequenceClassification
 - ? BigBirdForTokenClassification
+
+**BigBirdPegasus**
+
+- ? BigBirdPegasusModel
+- ✅ BigBirdPegasusForCausalLM
+- ⚠️ BigBirdPegasusForConditionalGeneration (currently supports only `use_past=False`)
+- ? BigBirdPegasusForQuestionAnswering
+- ? BigBirdPegasusForSequenceClassification
+
+**Blenderbot**
+
+- ? BlenderbotModel
+- ? BlenderbotForCausalLM
+- ⚠️ BlenderbotForConditionalGeneration (currently supports only `use_past=False`)
+
+**Blenderbot Small**
+
+- ? BlenderbotSmallModel
+- ? BlenderbotSmallForCausalLM
+- ⚠️ BlenderbotSmallForConditionalGeneration (currently supports only `use_past=False`)
 
 **CTRL**
 
@@ -93,6 +121,17 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 - ✅ GPT2ForTokenClassification
 - ⚠️ GPT2LMHeadModel (no `use_past`)
 
+**M2M100**
+
+- ? M2M100Model
+- ⚠️ M2M100ForConditionalGeneration (currently supports only `use_past=False`)
+
+**MarianMT**
+
+- ? MarianModel
+- ? MarianForCausalLM
+- ⚠️ MarianMTModel (currently supports only `use_past=False`)
+
 **MobileBERT**
 
 - ✅ MobileBertModel
@@ -103,6 +142,27 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 - ✅ MobileBertForQuestionAnswering
 - ✅ MobileBertForSequenceClassification
 - ✅ MobileBertForTokenClassification
+
+**MVP**
+
+- ? MvpModel
+- ? MvpForCausalLM
+- ⚠️ MvpForConditionalGeneration (currently supports only `use_past=False`)
+- ? MvpForSequenceClassification
+- ? MvpForQuestionAnswering
+
+**Pegasus**
+
+- ? PegasusModel
+- ? PegasusForCausalLM
+- ⚠️ PegasusForConditionalGeneration (currently supports only `use_past=False`)
+
+**PLBart**
+
+- ? PLBartModel
+- ? PLBartForCausalLM
+- ⚠️ PLBartForConditionalGeneration (currently supports only `use_past=False`)
+- ? PLBartForSequenceClassification
 
 **RoBERTa**
 
@@ -231,14 +291,6 @@ The following models are known to give errors when attempting conversion to Core
 
 ALBERT
 
-**BART**
-
-- ? BartModel
-- ❌ BartForCausalLM: Conversion succeeds, but "Error computing NN outputs".
-- ❌ BartForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-- ? BartForQuestionAnswering
-- ? BartForSequenceClassification
-
 BARThez
 
 BARTpho
@@ -248,19 +300,6 @@ BertGeneration
 BertJapanese
 
 Bertweet
-
-**BigBirdPegasus**
-
-- ❌ BigBirdPegasusForCausalLM: Core ML error "Error computing NN outputs"
-- ❌ BigBirdPegasusForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
-**Blenderbot**
-
-- ❌ BlenderbotForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
-**Blenderbot Small**
-
-- ❌ BlenderbotSmallForConditionalGeneration:  Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **BLOOM** [TODO verify] Conversion error on a slicing operation.
 
@@ -346,14 +385,6 @@ ValueError: In op, of type not_equal, named 133, the named input `y` must have t
 
 LUKE
 
-**M2M100**
-
-- ❌ M2M100ForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
-**MarianMT**
-
-- ❌ MarianMTModel: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
 MarkupLM
 
 MBart and MBart-50
@@ -370,10 +401,6 @@ MPNet
 
 - ❌ MT5ForConditionalGeneration: Converter error "User defined pattern has more than one final operation"
 
-**MVP**
-
-- ❌ MvpForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
 **NEZHA** [TODO verify] Conversion error on a slicing operation.
 
 NLLB
@@ -382,19 +409,11 @@ Nyströmformer
 
 **OPT** [TODO verify] Conversion error on a slicing operation.
 
-**Pegasus**
-
-- ❌ PegasusForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
-
 **PEGASUS-X**
 
 - ❌ PegasusXForConditionalGeneration: "AttributeError: 'list' object has no attribute 'val'" in `pad` op. Maybe: needs `remainder` op (added recently in coremltools dev version).
 
 PhoBERT
-
-**PLBart**
-
-- ❌ PLBartForConditionalGeneration: Encoder converts OK (tested only `use_past=False`). Decoder gives "Error computing NN outputs" with flexible sequence length.
 
 **ProphetNet**
 

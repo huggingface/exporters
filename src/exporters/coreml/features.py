@@ -131,6 +131,11 @@ class FeaturesManager:
         }
 
     _SUPPORTED_MODEL_TYPE = {
+        "bart": supported_features_mapping(
+            "causal-lm",
+            "seq2seq-lm",
+            coreml_config_cls="models.bart.BartCoreMLConfig",
+        ),
         # BEiT cannot be used with the masked image modeling autoclass, so this feature is excluded here
         "beit": supported_features_mapping(
             "default",
@@ -142,11 +147,32 @@ class FeaturesManager:
             "default",
             "masked-lm",
             "causal-lm",
+            "causal-lm-with-past",
             "multiple-choice",
+            "next-sentence-prediction",
             "question-answering",
             "sequence-classification",
             "token-classification",
             coreml_config_cls="models.bert.BertCoreMLConfig",
+        ),
+        "big_bird": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            coreml_config_cls="models.big_bird.BigBirdCoreMLConfig",
+        ),
+        "bigbird_pegasus": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            "seq2seq-lm",
+            coreml_config_cls="models.bigbird_pegasus.BigBirdPegasusCoreMLConfig",
+        ),
+        "blenderbot": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.blenderbot.BlenderbotCoreMLConfig",
+        ),
+        "blenderbot_small": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.blenderbot_small.BlenderbotSmallCoreMLConfig",
         ),
         "convnext": supported_features_mapping(
             "default",
@@ -166,6 +192,11 @@ class FeaturesManager:
             "image-classification",
             coreml_config_cls="models.cvt.CvtCoreMLConfig",
         ),
+        "data2vec": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            coreml_config_cls="models.data2vec.Data2VecTextCoreMLConfig",
+        ),
         "distilbert": supported_features_mapping(
             "default",
             "masked-lm",
@@ -174,6 +205,11 @@ class FeaturesManager:
             "sequence-classification",
             "token-classification",
             coreml_config_cls="models.distilbert.DistilBertCoreMLConfig",
+        ),
+        "ernie": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            coreml_config_cls="models.ernie.ErnieCoreMLConfig",
         ),
         "gpt2": supported_features_mapping(
             "default",
@@ -195,6 +231,14 @@ class FeaturesManager:
         "levit": supported_features_mapping(
             "default", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
+        "m2m_100": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.m2m_100.M2M100CoreMLConfig",
+        ),
+        "marian": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.marian.MarianMTCoreMLConfig",
+        ),
         "mobilebert": supported_features_mapping(
             "default",
             "masked-lm",
@@ -211,11 +255,38 @@ class FeaturesManager:
             "semantic-segmentation",
             coreml_config_cls="models.mobilevit.MobileViTCoreMLConfig",
         ),
+        "mvp": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.mvp.MvpCoreMLConfig",
+        ),
+        "pegasus": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.pegasus.PegasusCoreMLConfig",
+        ),
+        "plbart": supported_features_mapping(
+            "seq2seq-lm",
+            coreml_config_cls="models.plbart.PLBartCoreMLConfig",
+        ),
+        "roberta": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            coreml_config_cls="models.roberta.RobertaCoreMLConfig",
+        ),
+        "roformer": supported_features_mapping(
+            "causal-lm",
+            "causal-lm-with-past",
+            coreml_config_cls="models.roformer.RoFormerCoreMLConfig",
+        ),
         "segformer": supported_features_mapping(
             "default",
             "image-classification",
             "semantic-segmentation",
             coreml_config_cls="models.segformer.SegformerCoreMLConfig",
+        ),
+        "splinter": supported_features_mapping(
+            "default",
+            "default-with-past",
+            coreml_config_cls="models.splinter.SplinterCoreMLConfig",
         ),
         "squeezebert": supported_features_mapping(
             "default",
@@ -227,7 +298,6 @@ class FeaturesManager:
             coreml_config_cls="models.squeezebert.SqueezeBertCoreMLConfig",
         ),
         "t5": supported_features_mapping(
-            "default",
             "seq2seq-lm",
             coreml_config_cls="models.t5.T5CoreMLConfig",
         ),

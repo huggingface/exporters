@@ -42,18 +42,6 @@ def patch_common_pytorch_ops():
         res = mb.tile(x=tensor, reps=reps, name=name)
         return res
 
-    def expand(context, node):
-        inputs = _get_inputs(context, node, expected=[2, 3])
-
-        x = inputs[0]
-        shape = inputs[1]
-        if isinstance(shape, list):
-            res = _broadcast_dynamic(node.name, x, shape)
-            context.add(res)
-        else:
-            res = _broadcast(node.name, x, shape.val)
-            context.add(res)
-
     def repeat(context, node):
         x = context[node.inputs[0]]
         reps = context[node.inputs[1]]
@@ -66,7 +54,12 @@ def patch_common_pytorch_ops():
                 x = mb.expand_dims(x=x, axes=list(range(len(reps.val) - x.rank)))
             context.add(mb.tile(x=x, reps=reps, name=node.name))
 
-    return {"expand": expand, "repeat": repeat}
+    return {"repeat": repeat}
+
+
+
+class BartCoreMLConfig(CoreMLConfig):
+    modality = "text"
 
 
 class BeitCoreMLConfig(CoreMLConfig):
@@ -109,6 +102,18 @@ class BigBirdCoreMLConfig(CoreMLConfig):
     @property
     def use_legacy_format(self):
         return self.task == "causal-lm"
+
+
+class BigBirdPegasusCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
+class BlenderbotCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
+class BlenderbotSmallCoreMLConfig(CoreMLConfig):
+    modality = "text"
 
 
 class ConvNextCoreMLConfig(CoreMLConfig):
@@ -284,6 +289,14 @@ class LevitCoreMLConfig(CoreMLConfig):
         return 0.01
 
 
+class M2M100CoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
+class MarianMTCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
 class MobileBertCoreMLConfig(CoreMLConfig):
     modality = "text"
 
@@ -308,6 +321,18 @@ class MobileViTCoreMLConfig(CoreMLConfig):
         output_descs = super().outputs
         self._add_pooler_output(output_descs)
         return output_descs
+
+
+class MvpCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
+class PegasusCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
+class PLBartCoreMLConfig(CoreMLConfig):
+    modality = "text"
 
 
 class RobertaCoreMLConfig(CoreMLConfig):
