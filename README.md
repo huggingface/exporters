@@ -473,15 +473,21 @@ If validation fails with this error and you're not entirely sure if this is a tr
 
 We are looking to expand the set of ready-made configurations and welcome contributions from the community! If you would like to contribute your addition to the library, you will need to:
 
-* Implement the Core ML configuration in the corresponding `configuration_<model_name>.py` file
+* Implement the Core ML configuration in the `models.py` file
 * Include the model architecture and corresponding features in [`~coreml.features.FeatureManager`]
 * Add your model architecture to the tests in `test_coreml.py`
 
-### What if Core ML Exporters doesn't work for your model?
+### Troubleshooting: What if Core ML Exporters doesn't work for your model?
 
-It's possible that the model you wish to export fails to convert using Core ML Exporters or even when you try to use `coremltools` directly. When running these automated conversion tools, it's quite possible the conversion bails out with an inscrutable error message. Usually this happens because the model performs an operation that is not supported by Core ML, although the conversion tools also occasionally have bugs or may choke on complex models.
+It's possible that the model you wish to export fails to convert using Core ML Exporters or even when you try to use `coremltools` directly. When running these automated conversion tools, it's quite possible the conversion bails out with an inscrutable error message. Or, the conversion may appear to succeed but the model does not work or produces incorrect outputs.
 
-If the Core ML export fails, you have a couple of options:
+The most common reasons for conversion errors are:
+
+- You provided incorrect arguments to the converter. The `task` argument should match the chosen model architecture. For example, the `"default"` task should only be used with models of type `AutoModel`, not `AutoModelForXYZ`. Additionally, the `seq2seq` argument is required to tell apart encoder-decoder type models from encoder-only or decoder-only models. Passing invalid choices for these arguments may give an error during the conversion process or it may create a model that works but does the wrong thing.
+
+- The model performs an operation that is not supported by Core ML or coremltools. It's also possible coremltools has a bug or can't handle particularly complex models.
+
+If the Core ML export fails due to the latter, you have a couple of options:
 
 1. Implement the missing operator in the `CoreMLConfig`'s `patch_pytorch_ops()` function.
 

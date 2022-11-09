@@ -70,7 +70,6 @@ Tasks that neither of them support right now:
 Tasks that could be improved:
 
 - `object-detection`. If a Core ML model outputs the predicted bounding boxes in a certain manner, the user does not have to do any decoding and can directly use these outputs in their app (through the Vision framework). Currently, the Core ML exporter does not add this extra functionality.
-- `seq2seq-lm`. Unfortunately, `coremltools` gives errors on most of our encoder-decoder models. In theory, all the plumbing for seq2seq models is implemented in the exporter but no models currently work with it.
 
 ## Missing features
 

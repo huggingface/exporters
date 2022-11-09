@@ -132,6 +132,7 @@ class FeaturesManager:
 
     _SUPPORTED_MODEL_TYPE = {
         "bart": supported_features_mapping(
+            "default",
             "causal-lm",
             "seq2seq-lm",
             coreml_config_cls="models.bart.BartCoreMLConfig",
@@ -161,16 +162,19 @@ class FeaturesManager:
             coreml_config_cls="models.big_bird.BigBirdCoreMLConfig",
         ),
         "bigbird_pegasus": supported_features_mapping(
+            "default",
             "causal-lm",
             "causal-lm-with-past",
             "seq2seq-lm",
             coreml_config_cls="models.bigbird_pegasus.BigBirdPegasusCoreMLConfig",
         ),
         "blenderbot": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.blenderbot.BlenderbotCoreMLConfig",
         ),
         "blenderbot_small": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.blenderbot_small.BlenderbotSmallCoreMLConfig",
         ),
@@ -232,10 +236,12 @@ class FeaturesManager:
             "default", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
         "m2m_100": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.m2m_100.M2M100CoreMLConfig",
         ),
         "marian": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.marian.MarianMTCoreMLConfig",
         ),
@@ -256,14 +262,17 @@ class FeaturesManager:
             coreml_config_cls="models.mobilevit.MobileViTCoreMLConfig",
         ),
         "mvp": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.mvp.MvpCoreMLConfig",
         ),
         "pegasus": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.pegasus.PegasusCoreMLConfig",
         ),
         "plbart": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.plbart.PLBartCoreMLConfig",
         ),
@@ -298,6 +307,7 @@ class FeaturesManager:
             coreml_config_cls="models.squeezebert.SqueezeBertCoreMLConfig",
         ),
         "t5": supported_features_mapping(
+            "default",
             "seq2seq-lm",
             coreml_config_cls="models.t5.T5CoreMLConfig",
         ),

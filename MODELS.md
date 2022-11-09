@@ -35,7 +35,7 @@ Legend:
 
 **BART**
 
-- ? BartModel
+- ⚠️ BartModel (currently supports only `use_past=False`)
 - ✅ BartForCausalLM
 - ⚠️ BartForConditionalGeneration (currently supports only `use_past=False`)
 - ? BartForQuestionAnswering
@@ -66,7 +66,7 @@ Legend:
 
 **BigBirdPegasus**
 
-- ? BigBirdPegasusModel
+- ⚠️ BigBirdPegasusModel (currently supports only `use_past=False`)
 - ✅ BigBirdPegasusForCausalLM
 - ⚠️ BigBirdPegasusForConditionalGeneration (currently supports only `use_past=False`)
 - ? BigBirdPegasusForQuestionAnswering
@@ -74,13 +74,13 @@ Legend:
 
 **Blenderbot**
 
-- ? BlenderbotModel
+- ⚠️ BlenderbotModel (currently supports only `use_past=False`)
 - ? BlenderbotForCausalLM
 - ⚠️ BlenderbotForConditionalGeneration (currently supports only `use_past=False`)
 
 **Blenderbot Small**
 
-- ? BlenderbotSmallModel
+- ⚠️ BlenderbotSmallModel (currently supports only `use_past=False`)
 - ? BlenderbotSmallForCausalLM
 - ⚠️ BlenderbotSmallForConditionalGeneration (currently supports only `use_past=False`)
 
@@ -123,12 +123,12 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 
 **M2M100**
 
-- ? M2M100Model
+- ⚠️ M2M100Model (currently supports only `use_past=False`)
 - ⚠️ M2M100ForConditionalGeneration (currently supports only `use_past=False`)
 
 **MarianMT**
 
-- ? MarianModel
+- ⚠️ MarianModel (currently supports only `use_past=False`)
 - ? MarianForCausalLM
 - ⚠️ MarianMTModel (currently supports only `use_past=False`)
 
@@ -145,7 +145,7 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 
 **MVP**
 
-- ? MvpModel
+- ⚠️ MvpModel (currently supports only `use_past=False`)
 - ? MvpForCausalLM
 - ⚠️ MvpForConditionalGeneration (currently supports only `use_past=False`)
 - ? MvpForSequenceClassification
@@ -153,13 +153,13 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 
 **Pegasus**
 
-- ? PegasusModel
+- ⚠️ PegasusModel (currently supports only `use_past=False`)
 - ? PegasusForCausalLM
 - ⚠️ PegasusForConditionalGeneration (currently supports only `use_past=False`)
 
 **PLBart**
 
-- ? PLBartModel
+- ⚠️ PLBartModel (currently supports only `use_past=False`)
 - ? PLBartForCausalLM
 - ⚠️ PLBartForConditionalGeneration (currently supports only `use_past=False`)
 - ? PLBartForSequenceClassification
@@ -201,9 +201,9 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 
 **T5**
 
-- ? T5Model
-- ? T5EncoderModel
-- ✅ T5ForConditionalGeneration
+- ⚠️ T5Model (currently supports only `use_past=False`)
+- ✅ T5EncoderModel
+- ⚠️ T5ForConditionalGeneration (currently supports only `use_past=False`)
 
 ### Vision Models
 
