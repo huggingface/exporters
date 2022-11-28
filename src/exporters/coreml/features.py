@@ -17,8 +17,8 @@ from functools import partial, reduce
 from typing import TYPE_CHECKING, Callable, Dict, Optional, Tuple, Type, Union
 
 from transformers import PretrainedConfig, is_tf_available, is_torch_available
-from transformers.utils import logging
 from .config import CoreMLConfig
+from ..utils import logging
 
 
 if TYPE_CHECKING:

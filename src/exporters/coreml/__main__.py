@@ -21,10 +21,11 @@ from coremltools.models.utils import _is_macos, _macos_version
 
 from transformers.models.auto import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
 from transformers.onnx.utils import get_preprocessor
-from transformers.utils import logging
+
 from .convert import export
 from .features import FeaturesManager
 from .validate import validate_model_outputs
+from ..utils import logging
 
 
 def convert_model(preprocessor, model, model_coreml_config, args, seq2seq=None):

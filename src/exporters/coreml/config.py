@@ -23,8 +23,8 @@ from transformers.utils import (
     TensorType,
     is_torch_available,
     is_vision_available,
-    logging,
 )
+from ..utils import logging
 
 
 if TYPE_CHECKING:

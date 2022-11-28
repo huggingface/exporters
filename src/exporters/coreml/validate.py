@@ -18,10 +18,11 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, Union
 import coremltools as ct
 import numpy as np
 
-from transformers.utils import TensorType, is_torch_available, logging
+from transformers.utils import TensorType, is_torch_available
 from transformers.modeling_utils import PreTrainedModel
 
 from .config import CoreMLConfig
+from ..utils import logging
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name

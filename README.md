@@ -442,7 +442,7 @@ The final step is to validate that the outputs from the base and exported model 
 First enable logging:
 
 ```python
-from transformers.utils import logging
+from exporters.utils import logging
 logger = logging.get_logger("exporters.coreml")
 logger.setLevel(logging.INFO)
 ```

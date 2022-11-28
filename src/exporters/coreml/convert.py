@@ -26,9 +26,9 @@ from transformers.utils import (
     TensorType,
     is_torch_available,
     is_tf_available,
-    logging,
 )
 from .config import CoreMLConfig
+from ..utils import logging
 
 
 if is_torch_available():
