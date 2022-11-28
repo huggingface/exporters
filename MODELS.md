@@ -51,13 +51,13 @@ Legend:
 - ✅ BertForQuestionAnswering
 - ✅ BertForSequenceClassification
 - ✅ BertForTokenClassification
-- 😓 BertLMHeadModel: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ⚠️ BertLMHeadModel: works OK with coremltools commit 50c5569, breaks with later versions
 
 **BigBird**
 
 - ? BigBirdModel
 - ➖ BigBirdForPreTraining
-- 😓 BigBirdForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ⚠️ BigBirdForCausalLM: works OK with coremltools commit 50c5569, breaks with later versions
 - ? BigBirdForMaskedLM
 - ? BigBirdForMultipleChoice
 - ? BigBirdForQuestionAnswering
@@ -103,7 +103,7 @@ Legend:
 
 - ? ErnieModel
 - ➖ ErnieForPreTraining
-- 😓 ErnieForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ⚠️ ErnieForCausalLM: works OK with coremltools commit 50c5569, breaks with later versions
 - ? ErnieForMaskedLM
 - ? ErnieForMultipleChoice
 - ? ErnieForNextSentencePrediction
@@ -167,7 +167,7 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 **RoBERTa**
 
 - ? RobertaModel
-- 😓 RobertaForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ⚠️ RobertaForCausalLM: works OK with coremltools commit 50c5569, breaks with later versions
 - ? RobertaForMaskedLM
 - ? RobertaForMultipleChoice
 - ? RobertaForQuestionAnswering
@@ -177,7 +177,7 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 **RoFormer**
 
 - ? RoFormerModel
-- 😓 RoFormerForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ❌ RoFormerForCausalLM: Conversion may appear to work but the model does not actually run. Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes.
 - ? RoFormerForMaskedLM
 - ? RoFormerForSequenceClassification
 - ? RoFormerForMultipleChoice
@@ -186,7 +186,7 @@ Needs to be exported with `use_legacy_format=True`. Does not work with flexible 
 
 **Splinter**
 
-- 😓 SplinterModel: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ❌ SplinterModel: Conversion may appear to work but the model does not actually run. Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes.
 - ➖ SplinterForPreTraining
 - SplinterForQuestionAnswering
 
@@ -270,7 +270,7 @@ None
 **Data2Vec Text**
 
 - ? Data2VecTextModel
-- 😓 Data2VecTextForCausalLM: Appears to work OK when using `use_legacy_format`. However, when using MIL the conversion succeeds but the model may not actually run. It works OK with `use_past=False` or flexible sequence lengths, but blows up with `use_past=True` (Core ML takes forever to load the model, allocates 100+ GB of RAM and eventually crashes).
+- ⚠️ Data2VecTextForCausalLM: works OK with coremltools commit 50c5569, breaks with later versions
 - ? Data2VecTextForMaskedLM
 - ? Data2VecTextForMultipleChoice
 - ? Data2VecTextForQuestionAnswering

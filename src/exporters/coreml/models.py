@@ -27,35 +27,8 @@ def patch_common_pytorch_ops():
     Workarounds for issues that haven't been fixed yet in coremltools that
     affect many of our models.
     """
-    from coremltools.converters.mil import Builder as mb
-    from coremltools.converters.mil.frontend.torch.ops import _broadcast, _get_inputs
-
-    def _broadcast_dynamic(name, tensor, shape):
-        if len(shape) > tensor.rank:
-            new_dims = len(shape) - tensor.rank
-            tensor = mb.expand_dims(x=tensor, axes=list(range(new_dims)))
-
-        shape[0] = 1
-        shape[-1] = 1
-
-        reps = mb.concat(values=shape, axis=0)
-        res = mb.tile(x=tensor, reps=reps, name=name)
-        return res
-
-    def repeat(context, node):
-        x = context[node.inputs[0]]
-        reps = context[node.inputs[1]]
-
-        if isinstance(reps, list):
-            res = _broadcast_dynamic(node.name, x, reps)
-            context.add(res)
-        else:
-            if len(reps.val) > len(x.shape):
-                x = mb.expand_dims(x=x, axes=list(range(len(reps.val) - x.rank)))
-            context.add(mb.tile(x=x, reps=reps, name=node.name))
-
-    return {"repeat": repeat}
-
+    # from coremltools.converters.mil import Builder as mb
+    return {}
 
 
 class BartCoreMLConfig(CoreMLConfig):
@@ -85,23 +58,9 @@ class BertCoreMLConfig(CoreMLConfig):
         self._add_pooler_output(output_descs)
         return output_descs
 
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
-
 
 class BigBirdCoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
 
 
 class BigBirdPegasusCoreMLConfig(CoreMLConfig):
@@ -189,13 +148,6 @@ class CvtCoreMLConfig(CoreMLConfig):
 class Data2VecTextCoreMLConfig(CoreMLConfig):
     modality = "text"
 
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
-
 
 class DistilBertCoreMLConfig(CoreMLConfig):
     modality = "text"
@@ -228,13 +180,6 @@ class DistilBertCoreMLConfig(CoreMLConfig):
 
 class ErnieCoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
 
 
 class GPT2CoreMLConfig(CoreMLConfig):
@@ -338,23 +283,9 @@ class PLBartCoreMLConfig(CoreMLConfig):
 class RobertaCoreMLConfig(CoreMLConfig):
     modality = "text"
 
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
-
 
 class RoFormerCoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops() if self.task == "causal-lm" else {}
-
-    @property
-    def use_legacy_format(self):
-        return self.task == "causal-lm"
 
 
 class SegformerCoreMLConfig(CoreMLConfig):
@@ -363,13 +294,6 @@ class SegformerCoreMLConfig(CoreMLConfig):
 
 class SplinterCoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops()
-
-    @property
-    def use_legacy_format(self):
-        return True
 
 
 class SqueezeBertCoreMLConfig(CoreMLConfig):
@@ -384,9 +308,6 @@ class SqueezeBertCoreMLConfig(CoreMLConfig):
 
 class T5CoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    def patch_pytorch_ops(self):
-        return patch_common_pytorch_ops()
 
 
 class ViTCoreMLConfig(CoreMLConfig):
