@@ -166,6 +166,15 @@ def get_input_types(
                 ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)
             )
 
+        if "encoder_attention_mask" in input_descs:
+            input_desc = input_descs["encoder_attention_mask"]
+            shape = get_shape(config, input_desc, dummy_input)
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+            )
+        elif config.seq2seq == "decoder":
+            logger.info(f"Skipping encoder_attention_mask input")
+
         if config.use_past:
             shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
             #shape[0] = ct.RangeDim()  # batch size  #TODO
@@ -296,6 +305,8 @@ if is_torch_available():
                 model_kwargs["decoder_input_ids"] = all_inputs[0]
                 model_kwargs["decoder_attention_mask"] = all_inputs[1]
                 model_kwargs["encoder_outputs"] = (all_inputs[2],)
+                if remaining >= 4:
+                    model_kwargs["attention_mask"] = all_inputs[3]
             elif self.config.modality == "text":
                 if remaining >= 2:
                     model_kwargs["attention_mask"] = all_inputs[1]
@@ -318,7 +329,8 @@ if is_torch_available():
             if self.config.use_past:
                 if len(outputs) < 2:
                     raise ValueError("expected at least two output tensors, got one")
-                past_key_values = outputs[-1]
+                past_key_values_index = -2 if self.config.seq2seq == "decoder" else -1
+                past_key_values = outputs[past_key_values_index]
                 for i in range(len(past_key_values)):
                     for j in range(2):
                         presents = presents + (past_key_values[i][j],)

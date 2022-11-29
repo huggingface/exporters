@@ -115,6 +115,9 @@ class CoreMLConfig():
         if not hasattr(self, "modality"):
             raise ValueError("the CoreMLConfig subclass must have a modality property")
 
+        if use_past and seq2seq == "encoder":
+            raise ValueError("invalid option `use_past=True` for encoder model")
+
         self._config = config
         self.task = task
         self.use_past = use_past
@@ -201,6 +204,13 @@ class CoreMLConfig():
                         InputDescription(
                             "encoder_last_hidden_state",
                             "Sequence of hidden states at the output of the last layer of the encoder",
+                        )
+                    ),
+                    (
+                        "encoder_attention_mask",
+                        InputDescription(
+                            "encoder_attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
                         )
                     ),
                 ]
@@ -789,6 +799,10 @@ class CoreMLConfig():
             # the dummy input will always use the maximum sequence length
             sequence_length = self._get_max_sequence_length(input_desc, 64)
 
+            # don't want encoder and decoder to use same sequence length
+            if self.seq2seq == "decoder":
+                encoder_sequence_length = sequence_length + 7
+
             if self.task == "multiple-choice":
                 shape = (batch_size, self._config.num_labels, sequence_length)
             else:
@@ -806,8 +820,12 @@ class CoreMLConfig():
                 dummy_inputs["token_type_ids"] = (token_type_ids, token_type_ids.astype(np.int32))
 
             if "encoder_outputs" in input_descs:
-                last_hidden_state = np.zeros((batch_size, sequence_length, self._config.hidden_size), dtype=np.float32)
+                last_hidden_state = np.zeros((batch_size, encoder_sequence_length, self._config.hidden_size), dtype=np.float32)
                 dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
+
+            if "encoder_attention_mask" in input_descs:
+                encoder_attention_mask = np.ones((batch_size, encoder_sequence_length), dtype=np.int64)
+                dummy_inputs["encoder_attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
         elif (
             self.modality == "vision"
@@ -857,8 +875,12 @@ class CoreMLConfig():
                     dummy_inputs["decoder_attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
 
                 if "encoder_outputs" in input_descs:
-                    last_hidden_state = np.zeros((1, self._config.max_source_positions, self._config.hidden_size), dtype=np.float32)
+                    last_hidden_state = np.zeros((batch_size, self._config.max_source_positions, self._config.hidden_size), dtype=np.float32)
                     dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
+
+                if "encoder_attention_mask" in input_descs:
+                    encoder_attention_mask = np.ones((batch_size, self._config.max_source_positions), dtype=np.int64)
+                    dummy_inputs["encoder_attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
         else:
             raise ValueError(
@@ -866,7 +888,7 @@ class CoreMLConfig():
             )
 
         if self.use_past:
-            batch, seqlen = dummy_inputs["input_ids"][0].shape
+            batch, seqlen = dummy_inputs[input_ids_name][0].shape
 
             # Not using the same length for past_key_values
             past_key_values_length = seqlen + 2
@@ -877,9 +899,9 @@ class CoreMLConfig():
                 self._config.hidden_size // self.num_attention_heads,
             )
 
-            if "attention_mask" in dummy_inputs:
+            if attention_mask_name in dummy_inputs:
                 attention_mask = np.ones((batch, seqlen + past_key_values_length), dtype=np.int64)
-                dummy_inputs["attention_mask"] = (attention_mask, attention_mask.astype(np.int32))
+                dummy_inputs[attention_mask_name] = (attention_mask, attention_mask.astype(np.int32))
 
             for i in range(self.num_layers):
                 dummy_inputs[f"past_key_values_{i}_key"] = (
