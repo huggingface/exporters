@@ -28,8 +28,8 @@ from .validate import validate_model_outputs
 from ..utils import logging
 
 
-def convert_model(preprocessor, model, model_coreml_config, args, seq2seq=None):
-    coreml_config = model_coreml_config(model.config, seq2seq=seq2seq)
+def convert_model(preprocessor, model, model_coreml_config, args, use_past=False, seq2seq=None):
+    coreml_config = model_coreml_config(model.config, use_past=use_past, seq2seq=seq2seq)
 
     compute_units = ComputeUnit.ALL
     if args.compute_units == "cpu_and_gpu":
@@ -80,6 +80,9 @@ def main():
     )
     parser.add_argument(
         "--atol", type=float, default=None, help="Absolute difference tolerence when validating the model."
+    )
+    parser.add_argument(
+        "--use_past", action="store_true", help="Export the model with precomputed hidden states (key and values in the attention blocks) for fast autoregressive decoding."
     )
     parser.add_argument(
         "--framework", type=str, choices=["pt", "tf"], default="pt", help="The framework to use for the Core ML export."
@@ -133,6 +136,7 @@ def main():
             model,
             model_coreml_config,
             args,
+            use_past=False,
             seq2seq="encoder"
         )
 
@@ -143,6 +147,7 @@ def main():
             model,
             model_coreml_config,
             args,
+            use_past=args.use_past,
             seq2seq="decoder"
         )
     else:
@@ -151,6 +156,7 @@ def main():
             model,
             model_coreml_config,
             args,
+            use_past=args.use_past,
         )
 
 
