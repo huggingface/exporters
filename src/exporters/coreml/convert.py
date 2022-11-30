@@ -166,24 +166,38 @@ def get_input_types(
                 ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)
             )
 
-        if "encoder_attention_mask" in input_descs:
-            input_desc = input_descs["encoder_attention_mask"]
+        if config.seq2seq == "decoder" and "attention_mask" in input_descs:
+            input_desc = input_descs["attention_mask"]
             shape = get_shape(config, input_desc, dummy_input)
             input_types.append(
                 ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
-        elif config.seq2seq == "decoder":
-            logger.info(f"Skipping encoder_attention_mask input")
 
         if config.use_past:
-            shape = list(dummy_inputs["past_key_values_0_key"][1].shape)
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            # name = "decoder_past_key_values" if config.seq2seq == "decoder" else "past_key_values"
+            name = "past_key_values"
+            shape = list(dummy_inputs[f"{name}_0_key"][1].shape)
             #shape[0] = ct.RangeDim()  # batch size  #TODO
             shape[2] = ct.RangeDim(0, -1)
             shape = ct.Shape(shape)
 
             for i in range(config.num_layers):
-                input_types.append(ct.TensorType(name=f"past_key_values_{i}_key", shape=shape))
-                input_types.append(ct.TensorType(name=f"past_key_values_{i}_value", shape=shape))
+                input_types.append(ct.TensorType(name=f"{name}_{i}_key", shape=shape))
+                input_types.append(ct.TensorType(name=f"{name}_{i}_value", shape=shape))
+
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            # if config.seq2seq == "decoder":
+            #     name = "encoder_past_key_values"
+            #     shape = list(dummy_inputs[f"{name}_0_key"][1].shape)
+            #     #shape[0] = ct.RangeDim()  # batch size  #TODO
+            #     shape[2] = ct.RangeDim(0, -1)
+            #     shape = ct.Shape(shape)
+
+            #     for i in range(config.num_encoder_layers):
+            #         input_types.append(ct.TensorType(name=f"{name}_{i}_key", shape=shape))
+            #         input_types.append(ct.TensorType(name=f"{name}_{i}_value", shape=shape))
+
 
     elif config.modality == "vision":
         if hasattr(preprocessor, "image_mean"):
@@ -291,15 +305,33 @@ if is_torch_available():
             # Convert the past_key_values_x_key and _value inputs back into tuples,
             # as that is what the original model expects.
             # Assumes past_key_values are always the last inputs to the Wrapper.
+            # An encoder-decoder model first gets all the decoder past_key_values
+            # tensors, followed by the encoder ones, but they get combined into the
+            # same 4-tuples.
             if self.config.use_past:
-                remaining -= self.config.num_layers * 2
-                past_key_values = []
-                for i in range(self.config.num_layers):
-                    past_key_values.append((
-                        all_inputs[remaining + i*2],
-                        all_inputs[remaining + i*2 + 1],
-                    ))
-                model_kwargs["past_key_values"] = past_key_values
+                # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+                if False and self.config.seq2seq == "decoder":
+                    num_decoder_layers = self.config.num_layers
+                    num_encoder_layers = self.config.num_encoder_layers
+                    remaining -= (num_decoder_layers + num_encoder_layers) * 2
+                    past_key_values = []
+                    for i in range(min(num_decoder_layers, num_encoder_layers)):
+                        past_key_values.append((
+                            all_inputs[remaining + i*2],
+                            all_inputs[remaining + i*2 + 1],
+                            all_inputs[remaining + num_decoder_layers*2 + i*2],
+                            all_inputs[remaining + num_decoder_layers*2 + i*2 + 1],
+                        ))
+                    model_kwargs["past_key_values"] = past_key_values
+                else:
+                    remaining -= self.config.num_layers * 2
+                    past_key_values = []
+                    for i in range(self.config.num_layers):
+                        past_key_values.append((
+                            all_inputs[remaining + i*2],
+                            all_inputs[remaining + i*2 + 1],
+                        ))
+                    model_kwargs["past_key_values"] = past_key_values
 
             if self.config.seq2seq == "decoder":
                 model_kwargs["decoder_input_ids"] = all_inputs[0]
@@ -329,11 +361,24 @@ if is_torch_available():
             if self.config.use_past:
                 if len(outputs) < 2:
                     raise ValueError("expected at least two output tensors, got one")
+
                 past_key_values_index = -2 if self.config.seq2seq == "decoder" else -1
                 past_key_values = outputs[past_key_values_index]
-                for i in range(len(past_key_values)):
-                    for j in range(2):
-                        presents = presents + (past_key_values[i][j],)
+
+                # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+                if False and self.config.seq2seq == "decoder":
+                    decoder_presents = ()
+                    encoder_presents = ()
+                    for i in range(len(past_key_values)):
+                        for j in range(2):
+                            decoder_presents = decoder_presents + (past_key_values[i][j],)
+                            encoder_presents = encoder_presents + (past_key_values[i][j + 2],)
+
+                    presents = decoder_presents + encoder_presents
+                else:
+                    for i in range(len(past_key_values)):
+                        for j in range(2):
+                            presents = presents + (past_key_values[i][j],)
 
             output_descs = self.config.outputs
 
@@ -533,7 +578,7 @@ def export_pytorch(
         for i, (key, output_desc) in enumerate(output_descs.items()):
             if i < len(example_output):
                 output = spec.description.output[i]
-                ct.utils.rename_feature(spec, output.name, output_desc.name)
+                ct.utils.rename_feature(spec, output.name, output_desc.name, rename_inputs=False)
                 mlmodel.output_description[output_desc.name] = output_desc.description
                 set_multiarray_shape(output, example_output[i].shape)
 

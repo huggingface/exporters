@@ -207,7 +207,7 @@ class CoreMLConfig():
                         )
                     ),
                     (
-                        "encoder_attention_mask",
+                        "attention_mask",
                         InputDescription(
                             "encoder_attention_mask",
                             "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
@@ -539,15 +539,28 @@ class CoreMLConfig():
                         ]
 
         if self.use_past:
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            #name = "decoder_present" if self.seq2seq == "decoder" else "present"
+            name = "present"
             for i in range(self.num_layers):
-                output_shapes[f"present_{i}_key"] = [
+                output_shapes[f"{name}_{i}_key"] = [
                     #{ "axis": 0, "min": 1, "max": -1 },  # batch size  # TODO
                     { "axis": 2, "min": 1, "max": -1 },
                 ]
-                output_shapes[f"present_{i}_value"] = [
+                output_shapes[f"{name}_{i}_value"] = [
                     #{ "axis": 0, "min": 1, "max": -1 },  # batch size  # TODO
                     { "axis": 2, "min": 1, "max": -1 },
                 ]
+
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            # if self.seq2seq == "decoder":
+            #     for i in range(self.num_encoder_layers):
+            #         output_shapes[f"encoder_present_{i}_key"] = [
+            #             { "axis": 2, "min": 1, "max": -1 },
+            #         ]
+            #         output_shapes[f"encoder_present_{i}_value"] = [
+            #             { "axis": 2, "min": 1, "max": -1 },
+            #         ]
 
         return output_shapes
 
@@ -587,6 +600,13 @@ class CoreMLConfig():
         return self._config.num_layers
 
     @property
+    def num_encoder_layers(self) -> int:
+        """
+        The number of encoder layers retrieved from the model config of an encoder-decoder model.
+        """
+        return getattr(self._config, "encoder_layers", self.num_layers)
+
+    @property
     def num_attention_heads(self) -> int:
         """
         The number of attention heads retrieved from the model config. Override this for model configs where
@@ -606,16 +626,34 @@ class CoreMLConfig():
         return self._config.num_attention_heads
 
     def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
+        # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+        #name = "decoder_past_key_values" if self.seq2seq == "decoder" else "past_key_values"
         name = "past_key_values"
         for i in range(self.num_layers):
             inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
             inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
 
+        # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+        # if self.seq2seq == "decoder":
+        #     name = "encoder_past_key_values"
+        #     for i in range(self.num_encoder_layers):
+        #         inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
+        #         inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
+
     def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
+        # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+        # name = "decoder_present" if self.seq2seq == "decoder" else "present"
         name = "present"
         for i in range(self.num_layers):
             outputs[f"{name}_{i}_key"] = OutputDescription(f"{name}_{i}_key")
             outputs[f"{name}_{i}_value"] = OutputDescription(f"{name}_{i}_value")
+
+        # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+        # if self.seq2seq == "decoder":
+        #     name = "encoder_present"
+        #     for i in range(self.num_encoder_layers):
+        #         outputs[f"{name}_{i}_key"] = OutputDescription(f"{name}_{i}_key")
+        #         outputs[f"{name}_{i}_value"] = OutputDescription(f"{name}_{i}_value")
 
     @property
     def values_override(self) -> Optional[Mapping[str, Any]]:
@@ -823,9 +861,9 @@ class CoreMLConfig():
                 last_hidden_state = np.zeros((batch_size, encoder_sequence_length, self._config.hidden_size), dtype=np.float32)
                 dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
 
-            if "encoder_attention_mask" in input_descs:
+            if self.seq2seq == "decoder" and "attention_mask" in input_descs:
                 encoder_attention_mask = np.ones((batch_size, encoder_sequence_length), dtype=np.int64)
-                dummy_inputs["encoder_attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
+                dummy_inputs["attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
         elif (
             self.modality == "vision"
@@ -878,9 +916,9 @@ class CoreMLConfig():
                     last_hidden_state = np.zeros((batch_size, self._config.max_source_positions, self._config.hidden_size), dtype=np.float32)
                     dummy_inputs["encoder_outputs"] = (last_hidden_state, last_hidden_state)
 
-                if "encoder_attention_mask" in input_descs:
+                if "attention_mask" in input_descs:
                     encoder_attention_mask = np.ones((batch_size, self._config.max_source_positions), dtype=np.int64)
-                    dummy_inputs["encoder_attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
+                    dummy_inputs["attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
         else:
             raise ValueError(
@@ -888,10 +926,10 @@ class CoreMLConfig():
             )
 
         if self.use_past:
-            batch, seqlen = dummy_inputs[input_ids_name][0].shape
+            batch, sequence_length = dummy_inputs[input_ids_name][0].shape
 
             # Not using the same length for past_key_values
-            past_key_values_length = seqlen + 2
+            past_key_values_length = sequence_length + 2
             shape = (
                 batch,
                 self.num_attention_heads,
@@ -899,17 +937,40 @@ class CoreMLConfig():
                 self._config.hidden_size // self.num_attention_heads,
             )
 
+            # Resize the attention mask to include the past
             if attention_mask_name in dummy_inputs:
-                attention_mask = np.ones((batch, seqlen + past_key_values_length), dtype=np.int64)
+                attention_mask = np.ones((batch, sequence_length + past_key_values_length), dtype=np.int64)
                 dummy_inputs[attention_mask_name] = (attention_mask, attention_mask.astype(np.int32))
 
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            # name = "decoder_past_key_values" if self.seq2seq == "decoder" else "past_key_values"
+            name = "past_key_values"
             for i in range(self.num_layers):
-                dummy_inputs[f"past_key_values_{i}_key"] = (
+                dummy_inputs[f"{name}_{i}_key"] = (
                     np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
                 )
-                dummy_inputs[f"past_key_values_{i}_value"] = (
+                dummy_inputs[f"{name}_{i}_value"] = (
                     np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
                 )
+
+            # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
+            # Encoder-decoder model also needs past_key_values for encoder sequence
+            # if self.seq2seq == "decoder":
+            #     encoder_sequence_length = sequence_length + 7
+            #     shape = (
+            #         batch,
+            #         self.num_attention_heads,
+            #         encoder_sequence_length,
+            #         self._config.hidden_size // self.num_attention_heads,
+            #     )
+            #     name = "encoder_past_key_values"
+            #     for i in range(self.num_encoder_layers):
+            #         dummy_inputs[f"{name}_{i}_key"] = (
+            #             np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
+            #         )
+            #         dummy_inputs[f"{name}_{i}_value"] = (
+            #             np.zeros(shape, dtype=np.float32), np.zeros(shape, dtype=np.float32)
+            #         )
 
         return self._convert_dummy_inputs_to_framework(dummy_inputs, framework)
 

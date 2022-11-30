@@ -75,8 +75,6 @@ Tasks that could be improved:
 
 The following are not supported yet but would be useful to add:
 
-- `-with-past` versions for seq2seq models.
-
 - Flexible input sizes. Core ML models typically work with fixed input dimensions, but it also supports flexible image sizes and tensor shapes. The exporter currently supports flexible sequence lengths, but not image sizes.
 
     - Note: Certain models, notably BERT, currently give conversion errors with a flexible sequence length. This appears to be an issue with coremltools.
@@ -86,6 +84,61 @@ The following are not supported yet but would be useful to add:
 - `validate_model_outputs`: If the model supports a flexible input sequence length, run the test three times: once with the maximum length (that's what happens now), once with the minimum length, and once with a length in between (possibly randomly chosen).
 
 There are certain models that cannot be converted because of the way they are structured, or due to limitations and bugs in coremltools. Sometimes these can be fixed by making changes to the Transformers code, by implementing missing ops, or by filing bugs against coremltools. Trying to get as many Transformers models to export without issues is a work in progress.
+
+### `-with-past` versions for seq2seq models
+
+The encoder portion of the model is easy: this does not have a `past_key_values` option, so this is always converted with `use_past=False`.
+
+When the decoder is used with `use_cache=True`, it needs to accept a `past_key_values` tensor that consists of a 4-tuple for each layer with the key/value for the decoder but also the key/value for the encoder. The decoder and encoder tensors have different shapes because they have different sequence lengths.
+
+The encoder past key/values only need to be computed once, on the first iteration, and then they're simply re-used by the model on subsequent iterations. The decoder past key/values tensors grow in size with each iteration.
+
+Handling the decoder past key/values tensors in Core ML is not a problem. On the first iteration, you can pass in a tensor with a shape of `(batch, num_layers, 0, num_heads)` or just leave out this tensor completely as it is marked optional. The model returns a new past key/values tensor and you simply pass that in on the next iteration.
+
+This does not work for the encoder key/values. Core ML cannot perform branching logic in the model (not entirely true but its branching operation involves running a submodel and is rather complicated) and so the JIT trace must always choose one of the paths.
+
+What this means is: If we specify dummy encoder key/value inputs during the JIT trace, then the cross-attention layer will not perform the `k_proj` and `v_proj` operations on the encoder's hidden state outputs.
+
+In `BartAttention` that is these lines:
+
+```python
+        if is_cross_attention and past_key_value is not None:
+            # reuse k,v, cross_attentions
+            key_states = past_key_value[0]
+            value_states = past_key_value[1]
+        elif is_cross_attention:
+            # cross_attentions
+            key_states = self._shape(self.k_proj(key_value_states), -1, bsz)
+            value_states = self._shape(self.v_proj(key_value_states), -1, bsz)
+        elif past_key_value is not None:
+            ...
+```
+
+Here, `past_key_value` is the encoder key/values tensors and `key_value_states` is the encoder's last hidden state. The Core ML model can only include one of these branches, not both.
+
+If during the JIT trace we pass in dummy tensors for the encoder key/value tensors, then the first branch is taken and `k_proj` and `v_proj` are never executed. The problem is that we need those projection operations to happen on the very first iteration.
+
+In theory, we could solve this by never using the encoder key/values tensors, so that the second branch is always taken. This is less efficient, since it involves performing the same linear layers over and over, but at least it will work.
+
+However, this workaround fails when an encoder attention mask is provided. In `BartDecoderLayer` the following happens:
+
+```python
+cross_attn_past_key_value = past_key_value[-2:] if past_key_value is not None else None
+```
+
+Since the `past_key_value` tensor is now a 2-tuple instead of a 4-tuple (since we're no longer providing the encoder key/values), the expression `past_key_value[-2:]` will attempt to use the decoder key/values tensors for the cross attention. It should use the tensors at indices 2 and 3, but because the tuple only has two tensors in it now, this will use indices 0 and 1 — which are not the correct tensors!
+
+Since the key/values from indices 0,1 have the target sequence length from the decoder, the encoder's `attention_mask` cannot be applied.
+
+And even if we don't use this attention mask, what happens is incorrect anyway. The second branch will still never be taken (as `cross_attn_past_key_value` is not None) and `k_proj` and `v_proj` are never executed.
+
+I currently don't see a solution to this except perhaps rewriting the decoder layer to do the following instead, but that requires changing a lot of source files in `transformers` and is a suboptimal solution anyway.
+
+```python
+cross_attn_past_key_value = past_key_value[-2:] if (past_key_value is not None and len(past_key_value) > 2) else None
+```
+
+We could also export two versions of the decoder model: one for the first iteration and one for the remaining iterations but that's not great either.
 
 ## Assumptions made by the exporter
 
