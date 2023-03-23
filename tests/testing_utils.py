@@ -20,7 +20,7 @@ from transformers.utils.versions import importlib_metadata
 
 _coreml_available = importlib.util.find_spec("coremltools") is not None
 try:
-    _coreml_version = importlib_metadata.version("onnx")
+    _coreml_version = importlib_metadata.version("coremltools")
 
     from coremltools.models.utils import _is_macos, _macos_version
     _macos_available = _is_macos() and _macos_version() >= (12, 0)
