@@ -573,27 +573,11 @@ def export_pytorch(
         spec.description.predictedFeatureName = output_desc.name
         mlmodel.output_description[output_desc.name] = output_desc.description
     else:
-        flexible_outputs = config.get_flexible_outputs()
-
         for i, (key, output_desc) in enumerate(output_descs.items()):
             if i < len(example_output):
                 output = spec.description.output[i]
                 ct.utils.rename_feature(spec, output.name, output_desc.name, rename_inputs=False)
                 mlmodel.output_description[output_desc.name] = output_desc.description
-                set_multiarray_shape(output, example_output[i].shape)
-
-                # Set flexible output shape if necessary.
-                if key in flexible_outputs:
-                    lower_bounds = list(example_output[i].shape)
-                    upper_bounds = list(example_output[i].shape)
-
-                    for flexible_output in flexible_outputs[key]:
-                        lower_bounds[flexible_output["axis"]] = flexible_output["min"]
-                        upper_bounds[flexible_output["axis"]] = flexible_output["max"]
-
-                    flexible_shape_utils.set_multiarray_ndshape_range(
-                        spec, output_desc.name, lower_bounds, upper_bounds
-                    )
 
         if config.task in ["object-detection", "semantic-segmentation", "token-classification"]:
             labels = get_labels_as_list(model)
