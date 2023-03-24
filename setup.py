@@ -13,7 +13,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.6.0",
     install_requires=[
-        "transformers >= 4.19",
+        "transformers >= 4.26.1",
         "coremltools >= 5.0",
     ],
     classifiers=[
