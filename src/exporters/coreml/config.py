@@ -750,10 +750,11 @@ class CoreMLConfig():
         else:
             image_size = preprocessor.size
 
-        if isinstance(image_size, tuple):
-            image_width, image_height = image_size
+        if "shortest_edge" in image_size:
+            image_height = image_width = image_size["shortest_edge"]
         else:
-            image_width = image_height = image_size
+            image_height = image_size["height"]
+            image_width = image_size["width"]
 
         pixel_values = np.random.randint(0, 256, (image_width, image_height, 3), dtype=np.uint8)
         coreml_value = Image.fromarray(pixel_values)
