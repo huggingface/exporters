@@ -29,7 +29,7 @@ from ..utils import logging
 
 if TYPE_CHECKING:
     from transformers.configuration_utils import PretrainedConfig
-    from transformers.feature_extraction_utils import FeatureExtractionMixin
+    from transformers.image_processing_utils import ImageProcessingMixin
     from transformers.tokenization_utils_base import PreTrainedTokenizerBase
     from transformers.processing_utils import ProcessorMixin
 
@@ -742,7 +742,7 @@ class CoreMLConfig():
 
     def _generate_dummy_image(
         self,
-        preprocessor: "FeatureExtractionMixin",
+        preprocessor: "ImageProcessingMixin",
         framework: Optional[TensorType] = None,
     ) -> Tuple[Any, Any]:
         if hasattr(preprocessor, "crop_size") and preprocessor.do_center_crop:
@@ -800,14 +800,14 @@ class CoreMLConfig():
 
     def generate_dummy_inputs(
         self,
-        preprocessor: Union["PreTrainedTokenizerBase", "FeatureExtractionMixin", "ProcessorMixin"],
+        preprocessor: Union["PreTrainedTokenizerBase", "ImageProcessingMixin", "ProcessorMixin"],
         framework: Optional[TensorType] = None,
     ) -> Mapping[str, Tuple[Any, Any]]:
         """
         Generate dummy input data to provide to the Core ML exporter.
 
         Args:
-            preprocessor: ([`PreTrainedTokenizerBase`] or [`FeatureExtractionMixin`] or [`ProcessorMixin`]):
+            preprocessor: ([`PreTrainedTokenizerBase`] or [`ImageProcessingMixin`] or [`ProcessorMixin`]):
                 The preprocessor associated with this model configuration.
             framework (`TensorType`, *optional*, defaults to `None`):
                 The framework (PyTorch or TensorFlow) that the preprocessor will generate tensors for.
@@ -816,7 +816,7 @@ class CoreMLConfig():
             `Mapping[str, Tuple[Any, Any]]` holding tuples containing the reference and
             Core ML tensors to provide to the model's forward function.
         """
-        from transformers.feature_extraction_utils import FeatureExtractionMixin
+        from transformers.image_processing_utils import ImageProcessingMixin
         from transformers.tokenization_utils_base import PreTrainedTokenizerBase
         from transformers.processing_utils import ProcessorMixin
 
@@ -867,7 +867,7 @@ class CoreMLConfig():
 
         elif (
             self.modality == "vision"
-            and isinstance(preprocessor, FeatureExtractionMixin)
+            and isinstance(preprocessor, ImageProcessingMixin)
             and preprocessor.model_input_names[0] == "pixel_values"
         ):
             dummy_inputs["pixel_values"] = self._generate_dummy_image(preprocessor, framework)
