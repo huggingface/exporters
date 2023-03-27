@@ -77,6 +77,7 @@ PYTORCH_EXPORT_MODELS = {
     ("squeezebert", "squeezebert/squeezebert-uncased"),
     ("vit", "google/vit-base-patch16-224"),
     ("yolos", "hustvl/yolos-tiny"),
+    ("efficientnet", "google/efficientnet-b1"),
 }
 
 PYTORCH_EXPORT_WITH_PAST_MODELS = {

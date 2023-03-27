@@ -178,6 +178,32 @@ class DistilBertCoreMLConfig(CoreMLConfig):
             return super().inputs
 
 
+class EfficientNetCoreMLConfig(CoreMLConfig):
+    modality = "vision"
+
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        if self.task in ["image-classification"]:
+            return OrderedDict(
+                [
+                    (
+                        "logits",
+                        OutputDescription(
+                            "probabilities",
+                            "Probability of each category",
+                            do_softmax=False,
+                        )
+                    ),
+                ]
+            )
+        else:
+            return super().outputs()
+    
+    @property
+    def atol_for_validation(self) -> float:
+        return 1e-3
+
+
 class ErnieCoreMLConfig(CoreMLConfig):
     modality = "text"
 

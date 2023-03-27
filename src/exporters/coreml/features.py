@@ -210,6 +210,11 @@ class FeaturesManager:
             "token-classification",
             coreml_config_cls="models.distilbert.DistilBertCoreMLConfig",
         ),
+        "efficientnet": supported_features_mapping(
+            "default",
+            "image-classification",
+            coreml_config_cls="models.efficientnet.EfficientNetCoreMLConfig",
+        ),
         "ernie": supported_features_mapping(
             "causal-lm",
             "causal-lm-with-past",
