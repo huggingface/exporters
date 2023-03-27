@@ -92,6 +92,18 @@ class ConvNextCoreMLConfig(CoreMLConfig):
 class CTRLCoreMLConfig(CoreMLConfig):
     modality = "text"
 
+    def patch_pytorch_ops(self):
+        """Implement lift_fresh as a noop, unless it's already available in a future update."""
+        import coremltools.converters.mil.frontend.torch.ops as ops
+        if hasattr(ops, "lift_fresh"):
+            return {}
+
+        def lift_fresh(context, node):
+            a = context[node.inputs[0]]
+            context.add(a, node.name)
+
+        return {"lift_fresh": lift_fresh}
+
 
 class CvtCoreMLConfig(CoreMLConfig):
     modality = "vision"
