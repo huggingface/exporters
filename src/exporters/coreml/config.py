@@ -169,7 +169,7 @@ class CoreMLConfig():
         return cls(config, task=task, use_past=True, seq2seq=seq2seq)
 
     @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
+    def inputs(self) -> "OrderedDict[str, InputDescription]":
         """
         Ordered mapping of the inputs from the original model to the exported Core ML model.
         """
@@ -181,7 +181,7 @@ class CoreMLConfig():
         return common_inputs
 
     @property
-    def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
+    def _input_descriptions(self) -> "OrderedDict[str, InputDescription]":
         if self.modality in ["text", "audio"] and self.seq2seq == "decoder":
             return OrderedDict(
                 [
@@ -350,7 +350,7 @@ class CoreMLConfig():
         raise AssertionError(f"Unsupported task '{self.task}' for modality '{self.modality}'")
 
     @property
-    def outputs(self) -> OrderedDict[str, OutputDescription]:
+    def outputs(self) -> "OrderedDict[str, OutputDescription]":
         """
         Ordered mapping of the outputs from the original model to the exported Core ML model.
         """
@@ -362,7 +362,7 @@ class CoreMLConfig():
         return common_outputs
 
     @property
-    def _output_descriptions(self) -> OrderedDict[str, OutputDescription]:
+    def _output_descriptions(self) -> "OrderedDict[str, OutputDescription]":
         if self.task == "default" or self.seq2seq == "encoder":
             return OrderedDict(
                 [
@@ -625,7 +625,7 @@ class CoreMLConfig():
             )
         return self._config.num_attention_heads
 
-    def fill_inputs_with_past_key_values_(self, inputs: OrderedDict[str, InputDescription]):
+    def fill_inputs_with_past_key_values_(self, inputs: "OrderedDict[str, InputDescription]"):
         # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
         #name = "decoder_past_key_values" if self.seq2seq == "decoder" else "past_key_values"
         name = "past_key_values"
@@ -640,7 +640,7 @@ class CoreMLConfig():
         #         inputs[f"{name}_{i}_key"] = InputDescription(f"{name}_{i}_key", is_optional=True)
         #         inputs[f"{name}_{i}_value"] = InputDescription(f"{name}_{i}_value", is_optional=True)
 
-    def fill_outputs_with_past_key_values_(self, outputs: OrderedDict[str, OutputDescription]):
+    def fill_outputs_with_past_key_values_(self, outputs: "OrderedDict[str, OutputDescription]"):
         # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
         # name = "decoder_present" if self.seq2seq == "decoder" else "present"
         name = "present"
