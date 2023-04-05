@@ -320,6 +320,44 @@ class SqueezeBertCoreMLConfig(CoreMLConfig):
 
 class T5CoreMLConfig(CoreMLConfig):
     modality = "text"
+    
+    @property
+    def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
+        if self.task == "default":
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=(1, 128),
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                    (
+                        "decoder_input_ids",
+                        InputDescription(
+                            "decoder_input_ids",
+                            "Indices of decoder input sequence tokens in the vocabulary",
+                        )
+                    ),
+                    (
+                        "decoder_attention_mask",
+                        InputDescription(
+                            "decoder_attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                ]
+            )
+        return super()._input_descriptions
 
 
 class ViTCoreMLConfig(CoreMLConfig):

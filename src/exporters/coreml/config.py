@@ -866,6 +866,15 @@ class CoreMLConfig():
                 encoder_attention_mask = np.ones((batch_size, encoder_sequence_length), dtype=np.int64)
                 dummy_inputs["attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
+            if self.task == "default" and "decoder_input_ids" in input_descs:
+                # Special case for T5-like models
+                decoder_shape = (batch_size, sequence_length-5)
+                decoder_input_ids = np.random.randint(0, preprocessor.vocab_size, decoder_shape)
+                dummy_inputs["decoder_input_ids"] = (decoder_input_ids, decoder_input_ids.astype(np.int32))
+
+                decoder_attention_mask = np.ones(decoder_shape, dtype=np.int64)
+                dummy_inputs["decoder_attention_mask"] = (decoder_attention_mask, decoder_attention_mask.astype(np.int32))
+
         elif (
             self.modality == "vision"
             and isinstance(preprocessor, ImageProcessingMixin)

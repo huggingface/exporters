@@ -173,6 +173,19 @@ def get_input_types(
                 ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
 
+        if config.task == "default" and "decoder_input_ids" in input_descs:
+            # Special case for T5
+            input_desc = input_descs["decoder_input_ids"]
+            shape = get_shape(config, input_desc, dummy_inputs["decoder_input_ids"])
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+            )
+            input_desc = input_descs["decoder_attention_mask"]
+            shape = get_shape(config, input_desc, dummy_inputs["decoder_attention_mask"])
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+            )
+
         if config.use_past:
             # TODO: Temporarily disabled until we can solve the issue with encoder past key/values
             # name = "decoder_past_key_values" if config.seq2seq == "decoder" else "past_key_values"
@@ -342,7 +355,11 @@ if is_torch_available():
             elif self.config.modality == "text":
                 if remaining >= 2:
                     model_kwargs["attention_mask"] = all_inputs[1]
-                if remaining >= 3:
+                if remaining >= 4:
+                    # Special case for T5
+                    model_kwargs["decoder_input_ids"] = all_inputs[2]
+                    model_kwargs["decoder_attention_mask"] = all_inputs[3]
+                elif remaining == 3:
                     model_kwargs["token_type_ids"] = all_inputs[2]
             elif self.config.modality == "vision":
                 if self.config.task == "masked-im":
