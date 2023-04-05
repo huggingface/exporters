@@ -26,6 +26,8 @@ This package lets you export 🤗 Transformers models to Core ML and TensorFlow 
 
 The aim of the Exporters package is to be more convenient than writing your own conversion script with *coremltools* or *TFLiteConverter*, and to be tightly integrated with the 🤗 Transformers library and the Hugging Face Hub.
 
+For an even more convenient approach, `Exporters` powers a [no-code transformers to Core ML conversion Space](https://huggingface.co/spaces/huggingface-projects/transformers-to-coreml). You can try it out without installing anything to check whether the model you are interested in can be converted. If conversion succeeds, the converted Core ML weights will be pushed to the Hub. For additional flexibility and details about the conversion process, please read on.
+
 Note: Keep in mind that Transformer models are usually quite large and are not always suitable for use on mobile devices. It might be a good idea to [optimize the model for inference](https://github.com/huggingface/optimum) first using 🤗 Optimum.
 
 ## Installation
