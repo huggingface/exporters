@@ -75,6 +75,7 @@ PYTORCH_EXPORT_MODELS = {
     ("mobilevit", "apple/mobilevit-small"),
     ("segformer", "nvidia/mit-b0"),
     ("squeezebert", "squeezebert/squeezebert-uncased"),
+    ("t5", "t5-small"),
     ("vit", "google/vit-base-patch16-224"),
     ("yolos", "hustvl/yolos-tiny"),
 }
@@ -130,20 +131,51 @@ class CoreMLExportTestCase(TestCase):
         preprocessor = get_preprocessor(model_name)
 
         try:
-            mlmodel = export(
-                preprocessor,
-                model,
-                coreml_config,
-                quantize="float32",
-            )
+            if feature in ["seq2seq-lm", "speech-seq2seq"]:
+                coreml_config.seq2seq = "encoder"
+                mlmodel = export(
+                    preprocessor,
+                    model,
+                    coreml_config,
+                    quantize="float32",
+                )
+                validate_model_outputs(
+                    coreml_config,
+                    preprocessor,
+                    model,
+                    mlmodel,
+                    coreml_config.atol_for_validation,
+                )
 
-            validate_model_outputs(
-                coreml_config,
-                preprocessor,
-                model,
-                mlmodel,
-                coreml_config.atol_for_validation,
-            )
+                coreml_config.seq2seq = "decoder"
+                mlmodel = export(
+                    preprocessor,
+                    model,
+                    coreml_config,
+                    quantize="float32",
+                )
+                validate_model_outputs(
+                    coreml_config,
+                    preprocessor,
+                    model,
+                    mlmodel,
+                    coreml_config.atol_for_validation,
+                )
+            else:
+                mlmodel = export(
+                    preprocessor,
+                    model,
+                    coreml_config,
+                    quantize="float32",
+                )
+
+                validate_model_outputs(
+                    coreml_config,
+                    preprocessor,
+                    model,
+                    mlmodel,
+                    coreml_config.atol_for_validation,
+                )
         except (RuntimeError, ValueError) as e:
             self.fail(f"{name}, {feature} -> {e}")
 
