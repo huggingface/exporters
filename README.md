@@ -298,7 +298,7 @@ class MyCoreMLConfig(DistilBertCoreMLConfig):
         input_descs["input_ids"].sequence_length = 32
         return input_descs
 
-config = MyCoreMLConfig(model.config, "sequence-classification")
+config = MyCoreMLConfig(model.config, "text-classification")
 ```
 
 Using a fixed sequence length generally outputs a simpler, and possibly faster, Core ML model. However, for many models the input needs to have a flexible length. In that case, specify a tuple for `sequence_length` to set the (min, max) lengths. Use (1, -1) to have no upper limit on the sequence length. (Note: if `sequence_length` is set to a fixed value, then the batch size is fixed to 1.)
@@ -354,7 +354,7 @@ model_ckpt = "distilbert-base-uncased"
 base_model = AutoModelForSequenceClassification.from_pretrained(model_ckpt, torchscript=True)
 preprocessor = AutoTokenizer.from_pretrained(model_ckpt)
 
-coreml_config = DistilBertCoreMLConfig(base_model.config, task="sequence-classification")
+coreml_config = DistilBertCoreMLConfig(base_model.config, task="text-classification")
 mlmodel = export(preprocessor, base_model, coreml_config)
 ```
 
@@ -399,10 +399,10 @@ Decoder-based models can use a `past_key_values` input that ontains pre-computed
 To enable this feature with the Core ML exporter, set the `use_past=True` argument when creating the `CoreMLConfig` object:
 
 ```python
-coreml_config = CTRLCoreMLConfig(base_model.config, task="causal-lm", use_past=True)
+coreml_config = CTRLCoreMLConfig(base_model.config, task="text-generation", use_past=True)
 
 # or:
-coreml_config = CTRLCoreMLConfig.with_past(base_model.config, task="causal-lm")
+coreml_config = CTRLCoreMLConfig.with_past(base_model.config, task="text-generation")
 ```
 
 This adds multiple new inputs and outputs to the model with names such as `past_key_values_0_key`, `past_key_values_0_value`, ... (inputs) and `present_key_values_0_key`, `present_key_values_0_value`, ... (outputs).
@@ -426,10 +426,10 @@ You'll need to export the model as two separate Core ML models: the encoder and 
 Export the model like so:
 
 ```python
-coreml_config = TODOCoreMLConfig(base_model.config, task="seq2seq-lm", seq2seq="encoder")
+coreml_config = TODOCoreMLConfig(base_model.config, task="text2text-generation", seq2seq="encoder")
 encoder_mlmodel = export(preprocessor, base_model.get_encoder(), coreml_config)
 
-coreml_config = TODOCoreMLConfig(base_model.config, task="seq2seq-lm", seq2seq="decoder")
+coreml_config = TODOCoreMLConfig(base_model.config, task="text2text-generation", seq2seq="decoder")
 decoder_mlmodel = export(preprocessor, base_model, coreml_config)
 ```
 
@@ -485,7 +485,7 @@ It's possible that the model you wish to export fails to convert using Core ML E
 
 The most common reasons for conversion errors are:
 
-- You provided incorrect arguments to the converter. The `task` argument should match the chosen model architecture. For example, the `"default"` task should only be used with models of type `AutoModel`, not `AutoModelForXYZ`. Additionally, the `seq2seq` argument is required to tell apart encoder-decoder type models from encoder-only or decoder-only models. Passing invalid choices for these arguments may give an error during the conversion process or it may create a model that works but does the wrong thing.
+- You provided incorrect arguments to the converter. The `task` argument should match the chosen model architecture. For example, the `"feature-extraction"` task should only be used with models of type `AutoModel`, not `AutoModelForXYZ`. Additionally, the `seq2seq` argument is required to tell apart encoder-decoder type models from encoder-only or decoder-only models. Passing invalid choices for these arguments may give an error during the conversion process or it may create a model that works but does the wrong thing.
 
 - The model performs an operation that is not supported by Core ML or coremltools. It's also possible coremltools has a bug or can't handle particularly complex models.
 

@@ -127,7 +127,7 @@ class CoreMLConfig():
     def from_model_config(
         cls,
         config: "PretrainedConfig",
-        task: str = "default",
+        task: str = "feature-extraction",
         use_past: bool = False,
         seq2seq: Optional[str] = None,
     ) -> "CoreMLConfig":
@@ -151,7 +151,7 @@ class CoreMLConfig():
     def with_past(
         cls,
         config: "PretrainedConfig",
-        task: str = "default",
+        task: str = "feature-extraction",
         seq2seq: Optional[str] = None,
     ) -> "CoreMLConfig":
         """
@@ -217,12 +217,12 @@ class CoreMLConfig():
             )
 
         if self.modality == "text" and self.task in [
-            "default",
-            "causal-lm",
-            "masked-lm",
+            "feature-extraction",
+            "text-generation",
+            "fill-mask",
             "question-answering",
-            "sequence-classification",
-            "seq2seq-lm",
+            "text-classification",
+            "text2text-generation",
             "token-classification",
         ]:
             return OrderedDict(
@@ -277,7 +277,7 @@ class CoreMLConfig():
             )
 
         if self.modality == "vision" and self.task in [
-            "default",
+            "feature-extraction",
             "object-detection",
             "semantic-segmentation"
         ]:
@@ -363,7 +363,7 @@ class CoreMLConfig():
 
     @property
     def _output_descriptions(self) -> "OrderedDict[str, OutputDescription]":
-        if self.task == "default" or self.seq2seq == "encoder":
+        if self.task == "feature-extraction" or self.seq2seq == "encoder":
             return OrderedDict(
                 [
                     (
@@ -380,7 +380,7 @@ class CoreMLConfig():
             "image-classification",
             "multiple-choice",
             "next-sentence-prediction",
-            "sequence-classification",
+            "text-classification",
         ]:
             return OrderedDict(
                 [
@@ -417,10 +417,10 @@ class CoreMLConfig():
             )
 
         if self.task in [
-            "causal-lm",
-            "ctc",
-            "masked-lm",
-            "seq2seq-lm",
+            "text-generation",
+            "speech-recognition",
+            "fill-mask",
+            "text2text-generation",
             "speech-seq2seq",
             "token-classification"
         ]:
@@ -509,12 +509,12 @@ class CoreMLConfig():
 
         # Only tasks that output a sequence need a flexible output shape.
         if self.task in [
-            "default",
-            "causal-lm",
-            "ctc",
-            "masked-lm",
+            "feature-extraction",
+            "text-generation",
+            "speech-recognition",
+            "fill-mask",
             "question-answering",
-            "seq2seq-lm",
+            "text2text-generation",
             "speech-seq2seq",
             "token-classification",
         ]:
@@ -705,7 +705,7 @@ class CoreMLConfig():
             "image-classification",
             "multiple-choice",
             "next-sentence-prediction",
-            "sequence-classification"
+            "text-classification"
         ]
         return self.task in classifier_tasks and self.outputs["logits"].do_softmax
 
@@ -866,7 +866,7 @@ class CoreMLConfig():
                 encoder_attention_mask = np.ones((batch_size, encoder_sequence_length), dtype=np.int64)
                 dummy_inputs["attention_mask"] = (encoder_attention_mask, encoder_attention_mask.astype(np.int32))
 
-            if self.task == "default" and "decoder_input_ids" in input_descs:
+            if self.task == "feature-extraction" and "decoder_input_ids" in input_descs:
                 # Special case for T5-like models
                 decoder_shape = (batch_size, sequence_length-5)
                 decoder_input_ids = np.random.randint(0, preprocessor.vocab_size, decoder_shape)
@@ -994,7 +994,7 @@ class CoreMLConfig():
         return dummy_inputs
 
     def _add_pooler_output(self, output_descs):
-        if self.task == "default":
+        if self.task == "feature-extraction":
             if self.modality == "vision":
                 description = "Last layer hidden-state after a pooling operation on the spatial dimensions"
             else:

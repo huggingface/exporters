@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import warnings
+
 from argparse import ArgumentParser
 from pathlib import Path
 
@@ -74,8 +76,8 @@ def main():
     )
     parser.add_argument(
         "--feature",
-        choices=list(FeaturesManager.AVAILABLE_FEATURES),
-        default="default",
+        choices=list(FeaturesManager.AVAILABLE_FEATURES_INCLUDING_LEGACY),
+        default="feature-extraction",
         help="The type of features to export the model with.",
     )
     parser.add_argument(
@@ -121,6 +123,13 @@ def main():
         preprocessor = AutoProcessor.from_pretrained(args.model)
     else:
         raise ValueError(f"Unknown preprocessor type '{args.preprocessor}'")
+    
+    # Support legacy task names in CLI only
+    feature = args.feature
+    args.feature = FeaturesManager.map_from_synonym(args.feature)
+    if feature != args.feature:
+        deprecation_message = f"Feature '{feature}' is deprecated, please use '{args.feature}' instead."
+        warnings.warn(deprecation_message, FutureWarning)
 
     # Allocate the model
     model = FeaturesManager.get_model_from_feature(
@@ -128,7 +137,7 @@ def main():
     )
     model_kind, model_coreml_config = FeaturesManager.check_supported_model_or_raise(model, feature=args.feature)
 
-    if args.feature in ["seq2seq-lm", "speech-seq2seq"]:
+    if args.feature in ["text2text-generation", "speech-seq2seq"]:
         logger.info(f"Converting encoder model...")
 
         convert_model(

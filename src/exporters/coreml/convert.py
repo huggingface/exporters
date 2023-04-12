@@ -173,7 +173,7 @@ def get_input_types(
                 ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
             )
 
-        if config.task == "default" and "decoder_input_ids" in input_descs:
+        if config.task == "feature-extraction" and "decoder_input_ids" in input_descs:
             # Special case for T5
             input_desc = input_descs["decoder_input_ids"]
             shape = get_shape(config, input_desc, dummy_inputs["decoder_input_ids"])
@@ -412,13 +412,13 @@ if is_torch_available():
                 return outputs[1] if len(outputs) >= 2 else outputs[0]  # logits
 
             if self.config.seq2seq != "encoder" and self.config.task in [
-                "causal-lm",
-                "ctc",
-                "masked-lm",
+                "text-generation",
+                "speech-recognition",
+                "fill-mask",
                 "multiple-choice",
                 "next-sentence-prediction",
-                "seq2seq-lm",
-                "sequence-classification",
+                "text2text-generation",
+                "text-classification",
                 "speech-seq2seq",
                 "token-classification",
             ]:
@@ -453,10 +453,10 @@ if is_torch_available():
                     x = x.argmax(1)
                 return x
 
-            if self.config.seq2seq == "encoder" and self.config.task in ["seq2seq-lm", "speech-seq2seq"]:
+            if self.config.seq2seq == "encoder" and self.config.task in ["text2text-generation", "speech-seq2seq"]:
                 return outputs[0]  # last_hidden_state
 
-            if self.config.task == "default":
+            if self.config.task == "feature-extraction":
                 if self.config.use_past:
                     return (outputs[0],) + presents
                 elif len(output_descs) > 1 and len(outputs) > 1:

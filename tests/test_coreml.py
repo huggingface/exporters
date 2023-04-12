@@ -40,7 +40,7 @@ class TextCoreMLConfig(CoreMLConfig):
 class CoreMLConfigTestCase(TestCase):
     def test_unknown_modality(self):
         with pytest.raises(ValueError):
-            config = CoreMLConfig(None, task="default")
+            config = CoreMLConfig(None, task="feature-extraction")
 
     def test_unknown_task(self):
         with pytest.raises(AssertionError):
@@ -48,7 +48,7 @@ class CoreMLConfigTestCase(TestCase):
             _ = config.inputs
 
     def test_sequence_length(self):
-        config = TextCoreMLConfig(None, task="default")
+        config = TextCoreMLConfig(None, task="feature-extraction")
         flexible_outputs = config.get_flexible_outputs()
         self.assertEqual(len(flexible_outputs), 1)
         self.assertIn("last_hidden_state", flexible_outputs)
@@ -59,7 +59,7 @@ class CoreMLConfigTestCase(TestCase):
         self.assertEqual(flexible_output[0]["min"], 1)
         self.assertEqual(flexible_output[0]["max"], 128)
 
-        config = TextCoreMLConfig(None, task="sequence-classification")
+        config = TextCoreMLConfig(None, task="text-classification")
         flexible_outputs = config.get_flexible_outputs()
         self.assertTrue(len(flexible_outputs) == 0)
 
@@ -131,7 +131,7 @@ class CoreMLExportTestCase(TestCase):
         preprocessor = get_preprocessor(model_name)
 
         try:
-            if feature in ["seq2seq-lm", "speech-seq2seq"]:
+            if feature in ["text2text-generation", "speech-seq2seq"]:
                 coreml_config.seq2seq = "encoder"
                 mlmodel = export(
                     preprocessor,
