@@ -413,7 +413,7 @@ if is_torch_available():
 
             if self.config.seq2seq != "encoder" and self.config.task in [
                 "text-generation",
-                "speech-recognition",
+                "automatic-speech-recognition",
                 "fill-mask",
                 "multiple-choice",
                 "next-sentence-prediction",

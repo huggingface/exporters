@@ -418,7 +418,7 @@ class CoreMLConfig():
 
         if self.task in [
             "text-generation",
-            "speech-recognition",
+            "automatic-speech-recognition",
             "fill-mask",
             "text2text-generation",
             "speech-seq2seq",
@@ -511,7 +511,7 @@ class CoreMLConfig():
         if self.task in [
             "feature-extraction",
             "text-generation",
-            "speech-recognition",
+            "automatic-speech-recognition",
             "fill-mask",
             "question-answering",
             "text2text-generation",

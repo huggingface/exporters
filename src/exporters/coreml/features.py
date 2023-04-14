@@ -103,7 +103,7 @@ class FeaturesManager:
         _TASKS_TO_AUTOMODELS = {
             "feature-extraction": AutoModel,
             "text-generation": AutoModelForCausalLM,
-            "speech-recognition": AutoModelForCTC,
+            "automatic-speech-recognition": AutoModelForCTC,
             "image-classification": AutoModelForImageClassification,
             # "image-segmentation": AutoModelForImageSegmentation,
             "masked-im": AutoModelForMaskedImageModeling,
@@ -142,7 +142,7 @@ class FeaturesManager:
         "vision2seq-lm": "image-to-text",
         "default": "feature-extraction",
         "default-with-past": "feature-extraction-with-past",
-        "speech-recognition": "automatic-speech-recognition",
+        "automatic-speech-recognition": "automatic-speech-recognition",
         "ctc": "automatic-speech-recognition",
     }
 
