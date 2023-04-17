@@ -101,227 +101,249 @@ class FeaturesManager:
     _TASKS_TO_TF_AUTOMODELS = {}
     if is_torch_available():
         _TASKS_TO_AUTOMODELS = {
-            "default": AutoModel,
-            "causal-lm": AutoModelForCausalLM,
-            "ctc": AutoModelForCTC,
+            "feature-extraction": AutoModel,
+            "text-generation": AutoModelForCausalLM,
+            "automatic-speech-recognition": AutoModelForCTC,
             "image-classification": AutoModelForImageClassification,
             # "image-segmentation": AutoModelForImageSegmentation,
             "masked-im": AutoModelForMaskedImageModeling,
-            "masked-lm": AutoModelForMaskedLM,
+            "fill-mask": AutoModelForMaskedLM,
             "multiple-choice": AutoModelForMultipleChoice,
             "next-sentence-prediction": AutoModelForNextSentencePrediction,
             "object-detection": AutoModelForObjectDetection,
             "question-answering": AutoModelForQuestionAnswering,
             "semantic-segmentation": AutoModelForSemanticSegmentation,
-            "seq2seq-lm": AutoModelForSeq2SeqLM,
-            "sequence-classification": AutoModelForSequenceClassification,
+            "text2text-generation": AutoModelForSeq2SeqLM,
+            "text-classification": AutoModelForSequenceClassification,
             "speech-seq2seq": AutoModelForSpeechSeq2Seq,
             "token-classification": AutoModelForTokenClassification,
         }
     if is_tf_available():
         _TASKS_TO_TF_AUTOMODELS = {
-            # "default": TFAutoModel,
-            # "causal-lm": TFAutoModelForCausalLM,
-            # "masked-lm": TFAutoModelForMaskedLM,
+            # "feature-extraction": TFAutoModel,
+            # "text-generation": TFAutoModelForCausalLM,
+            # "fill-mask": TFAutoModelForMaskedLM,
             # "multiple-choice": TFAutoModelForMultipleChoice,
             # "question-answering": TFAutoModelForQuestionAnswering,
-            # "seq2seq-lm": TFAutoModelForSeq2SeqLM,
-            # "sequence-classification": TFAutoModelForSequenceClassification,
+            # "text2text-generation": TFAutoModelForSeq2SeqLM,
+            # "text-classification": TFAutoModelForSequenceClassification,
             # "token-classification": TFAutoModelForTokenClassification,
         }
 
+    _SYNONYM_TASK_MAP = {
+        "sequence-classification": "text-classification",
+        "causal-lm": "text-generation",
+        "causal-lm-with-past": "text-generation-with-past",
+        "seq2seq-lm": "text2text-generation",
+        "seq2seq-lm-with-past": "text2text-generation-with-past",
+        "speech2seq-lm": "automatic-speech-recognition",
+        "speech2seq-lm-with-past": "automatic-speech-recognition-with-past",
+        "masked-lm": "fill-mask",
+        "vision2seq-lm": "image-to-text",
+        "default": "feature-extraction",
+        "default-with-past": "feature-extraction-with-past",
+        "automatic-speech-recognition": "automatic-speech-recognition",
+        "ctc": "automatic-speech-recognition",
+    }
+
     _SUPPORTED_MODEL_TYPE = {
         "bart": supported_features_mapping(
-            "default",
-            "causal-lm",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text-generation",
+            "text2text-generation",
             coreml_config_cls="models.bart.BartCoreMLConfig",
         ),
         # BEiT cannot be used with the masked image modeling autoclass, so this feature is excluded here
         "beit": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "image-classification",
             "semantic-segmentation",
             coreml_config_cls="models.beit.BeitCoreMLConfig"
         ),
         "bert": supported_features_mapping(
-            "default",
-            "masked-lm",
-            "causal-lm",
-            "causal-lm-with-past",
+            "feature-extraction",
+            "fill-mask",
+            "text-generation",
+            "text-generation-with-past",
             "multiple-choice",
             "next-sentence-prediction",
             "question-answering",
-            "sequence-classification",
+            "text-classification",
             "token-classification",
             coreml_config_cls="models.bert.BertCoreMLConfig",
         ),
         "big_bird": supported_features_mapping(
-            "causal-lm",
-            "causal-lm-with-past",
+            "text-generation",
+            "text-generation-with-past",
             coreml_config_cls="models.big_bird.BigBirdCoreMLConfig",
         ),
         "bigbird_pegasus": supported_features_mapping(
-            "default",
-            "causal-lm",
-            "causal-lm-with-past",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text-generation",
+            "text-generation-with-past",
+            "text2text-generation",
             coreml_config_cls="models.bigbird_pegasus.BigBirdPegasusCoreMLConfig",
         ),
         "blenderbot": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.blenderbot.BlenderbotCoreMLConfig",
         ),
         "blenderbot_small": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.blenderbot_small.BlenderbotSmallCoreMLConfig",
         ),
+        "bloom": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            coreml_config_cls="models.bloom.BloomCoreMLConfig",
+        ),
         "convnext": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "image-classification",
             coreml_config_cls="models.convnext.ConvNextCoreMLConfig",
         ),
         "ctrl": supported_features_mapping(
-            "default",
-            "default-with-past",
-            "causal-lm",
-            "causal-lm-with-past",
-            "sequence-classification",
+            "feature-extraction",
+            "feature-extraction-with-past",
+            "text-generation",
+            "text-generation-with-past",
+            "text-classification",
             coreml_config_cls="models.ctrl.CTRLCoreMLConfig",
         ),
         "cvt": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "image-classification",
             coreml_config_cls="models.cvt.CvtCoreMLConfig",
         ),
         "data2vec": supported_features_mapping(
-            "causal-lm",
-            "causal-lm-with-past",
+            "text-generation",
+            "text-generation-with-past",
             coreml_config_cls="models.data2vec.Data2VecTextCoreMLConfig",
         ),
         "distilbert": supported_features_mapping(
-            "default",
-            "masked-lm",
+            "feature-extraction",
+            "fill-mask",
             "multiple-choice",
             "question-answering",
-            "sequence-classification",
+            "text-classification",
             "token-classification",
             coreml_config_cls="models.distilbert.DistilBertCoreMLConfig",
         ),
         "ernie": supported_features_mapping(
-            "causal-lm",
-            "causal-lm-with-past",
+            "text-generation",
+            "text-generation-with-past",
             coreml_config_cls="models.ernie.ErnieCoreMLConfig",
         ),
         "gpt2": supported_features_mapping(
-            "default",
-            #"default-with-past",
-            "causal-lm",
-            #"causal-lm-with-past",
-            "sequence-classification",
+            "feature-extraction",
+            #"feature-extraction-with-past",
+            "text-generation",
+            #"text-generation-with-past",
+            "text-classification",
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
         ),
         "gpt-neo": supported_features_mapping(
-            "default",
-            #"default-with-past",
-            "causal-lm",
-            #"causal-lm-with-past",
-            "sequence-classification",
+            "feature-extraction",
+            #"feature-extraction-with-past",
+            "text-generation",
+            #"text-generation-with-past",
+            "text-classification",
             coreml_config_cls="models.gpt_neo.GPTNeoCoreMLConfig",
         ),
         "levit": supported_features_mapping(
-            "default", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
+            "feature-extraction", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
         "m2m_100": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.m2m_100.M2M100CoreMLConfig",
         ),
         "marian": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.marian.MarianMTCoreMLConfig",
         ),
         "mobilebert": supported_features_mapping(
-            "default",
-            "masked-lm",
+            "feature-extraction",
+            "fill-mask",
             "multiple-choice",
             "next-sentence-prediction",
             "question-answering",
-            "sequence-classification",
+            "text-classification",
             "token-classification",
             coreml_config_cls="models.mobilebert.MobileBertCoreMLConfig",
         ),
         "mobilevit": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "image-classification",
             "semantic-segmentation",
             coreml_config_cls="models.mobilevit.MobileViTCoreMLConfig",
         ),
         "mvp": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.mvp.MvpCoreMLConfig",
         ),
         "pegasus": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.pegasus.PegasusCoreMLConfig",
         ),
         "plbart": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.plbart.PLBartCoreMLConfig",
         ),
         "roberta": supported_features_mapping(
-            "causal-lm",
-            "causal-lm-with-past",
+            "text-generation",
+            "text-generation-with-past",
             coreml_config_cls="models.roberta.RobertaCoreMLConfig",
         ),
         "roformer": supported_features_mapping(
-            "causal-lm",
-            "causal-lm-with-past",
+            "text-generation",
+            "text-generation-with-past",
             coreml_config_cls="models.roformer.RoFormerCoreMLConfig",
         ),
         "segformer": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "image-classification",
             "semantic-segmentation",
             coreml_config_cls="models.segformer.SegformerCoreMLConfig",
         ),
         "splinter": supported_features_mapping(
-            "default",
-            "default-with-past",
+            "feature-extraction",
+            "text-generation-with-past",
             coreml_config_cls="models.splinter.SplinterCoreMLConfig",
         ),
         "squeezebert": supported_features_mapping(
-            "default",
-            "masked-lm",
+            "feature-extraction",
+            "fill-mask",
             "multiple-choice",
             "question-answering",
-            "sequence-classification",
+            "text-classification",
             "token-classification",
             coreml_config_cls="models.squeezebert.SqueezeBertCoreMLConfig",
         ),
         "t5": supported_features_mapping(
-            "default",
-            "seq2seq-lm",
+            "feature-extraction",
+            "text2text-generation",
             coreml_config_cls="models.t5.T5CoreMLConfig",
         ),
         "vit": supported_features_mapping(
-            "default", "image-classification", "masked-im", coreml_config_cls="models.vit.ViTCoreMLConfig"
+            "feature-extraction", "image-classification", "masked-im", coreml_config_cls="models.vit.ViTCoreMLConfig"
         ),
         "yolos": supported_features_mapping(
-            "default",
+            "feature-extraction",
             "object-detection",
             coreml_config_cls="models.yolos.YolosCoreMLConfig",
         ),
     }
 
     AVAILABLE_FEATURES = sorted(reduce(lambda s1, s2: s1 | s2, (v.keys() for v in _SUPPORTED_MODEL_TYPE.values())))
+    AVAILABLE_FEATURES_INCLUDING_LEGACY = AVAILABLE_FEATURES + list(_SYNONYM_TASK_MAP.keys())
 
     @staticmethod
     def get_supported_features_for_model_type(
@@ -352,6 +374,12 @@ class FeaturesManager:
     @staticmethod
     def feature_to_task(feature: str) -> str:
         return feature.replace("-with-past", "")
+
+    @staticmethod
+    def map_from_synonym(feature: str) -> str:
+        if feature in FeaturesManager._SYNONYM_TASK_MAP:
+            feature = FeaturesManager._SYNONYM_TASK_MAP[feature]
+        return feature
 
     @staticmethod
     def _validate_framework_choice(framework: str):
@@ -425,7 +453,7 @@ class FeaturesManager:
 
     @staticmethod
     def check_supported_model_or_raise(
-        model: Union["PreTrainedModel", "TFPreTrainedModel"], feature: str = "default"
+        model: Union["PreTrainedModel", "TFPreTrainedModel"], feature: str = "feature-extraction"
     ) -> Tuple[str, Callable]:
         """
         Check whether or not the model has the requested features.

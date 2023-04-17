@@ -75,6 +75,10 @@ class BlenderbotSmallCoreMLConfig(CoreMLConfig):
     modality = "text"
 
 
+class BloomCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
 class ConvNextCoreMLConfig(CoreMLConfig):
     modality = "vision"
 
@@ -110,7 +114,7 @@ class CvtCoreMLConfig(CoreMLConfig):
 
     @property
     def outputs(self) -> OrderedDict[str, OutputDescription]:
-        if self.task == "default":
+        if self.task == "feature-extraction":
             return OrderedDict(
                 [
                     (
@@ -323,7 +327,7 @@ class T5CoreMLConfig(CoreMLConfig):
     
     @property
     def _input_descriptions(self) -> OrderedDict[str, InputDescription]:
-        if self.task == "default":
+        if self.task == "feature-extraction":
             return OrderedDict(
                 [
                     (
