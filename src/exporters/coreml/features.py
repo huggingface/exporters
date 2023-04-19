@@ -245,7 +245,7 @@ class FeaturesManager:
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
         ),
-        "gpt-neo": supported_features_mapping(
+        "gpt_neo": supported_features_mapping(
             "feature-extraction",
             #"feature-extraction-with-past",
             "text-generation",
@@ -466,7 +466,7 @@ class FeaturesManager:
             (str) The type of the model (CoreMLConfig) The CoreMLConfig instance holding the model export properties.
 
         """
-        model_type = model.config.model_type.replace("_", "-")
+        model_type = model.config.model_type.replace("-", "_")
         model_name = getattr(model, "name", "")
         model_features = FeaturesManager.get_supported_features_for_model_type(model_type, model_name=model_name)
         if feature not in model_features:
