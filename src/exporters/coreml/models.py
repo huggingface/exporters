@@ -212,6 +212,24 @@ class GPT2CoreMLConfig(CoreMLConfig):
     def use_legacy_format(self) -> bool:
         return True
 
+    def patch_pytorch_ops(self):
+        def _fill(context, node):
+            from coremltools.converters.mil import Builder as mb
+            from coremltools.converters.mil.mil import types
+
+            shape = context[node.inputs[0]]
+            value = context[node.inputs[1]]
+            print(f"shape: {shape}, value: {value}, name: {node.name}")
+
+            # Shortcut for rank-0 tensor. Setting shape to a var with [] would also work
+            if shape.rank == 1 and shape.shape[0] == 0 and types.is_float(shape.dtype):
+                context.add(value, node.name)
+            else:
+                x = mb.fill(shape=shape, value=value, name=node.name)
+                context.add(x)
+
+        return {"full": _fill}
+
 
 class GPTNeoCoreMLConfig(CoreMLConfig):
     modality = "text"
