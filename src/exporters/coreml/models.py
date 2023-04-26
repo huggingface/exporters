@@ -219,9 +219,8 @@ class GPT2CoreMLConfig(CoreMLConfig):
 
             shape = context[node.inputs[0]]
             value = context[node.inputs[1]]
-            print(f"shape: {shape}, value: {value}, name: {node.name}")
 
-            # Shortcut for rank-0 tensor. Setting shape to a var with [] would also work
+            # Shortcut for rank-0 tensor. Setting shape to a Var with [] would also work
             if shape.rank == 1 and shape.shape[0] == 0 and types.is_float(shape.dtype):
                 context.add(value, node.name)
             else:
