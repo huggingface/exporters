@@ -19,6 +19,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 from coremltools import ComputeUnit
+from coremltools.models import MLModel
 from coremltools.models.utils import _is_macos, _macos_version
 
 from transformers.models.auto import AutoFeatureExtractor, AutoProcessor, AutoTokenizer
@@ -64,6 +65,8 @@ def convert_model(preprocessor, model, model_coreml_config, args, use_past=False
     if not _is_macos() or _macos_version() < (12, 0):
         logger.info("Skipping model validation, requires macOS 12.0 or later")
     else:
+        # Run validation on CPU
+        mlmodel = MLModel(filename, compute_units=ComputeUnit.CPU_ONLY)
         validate_model_outputs(coreml_config, preprocessor, model, mlmodel, args.atol)
 
     logger.info(f"All good, model saved at: {filename}")
