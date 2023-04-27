@@ -70,6 +70,7 @@ PYTORCH_EXPORT_MODELS = {
     ("convnext", "facebook/convnext-tiny-224"),
     ("cvt", "microsoft/cvt-21-384-22k"),
     ("distilbert", "distilbert-base-cased"),
+    ("gpt2", "distilgpt2"),
     ("levit", "facebook/levit-128S"),
     ("mobilebert", "google/mobilebert-uncased"),
     ("mobilevit", "apple/mobilevit-small"),
