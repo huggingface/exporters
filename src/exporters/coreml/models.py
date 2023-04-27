@@ -208,10 +208,6 @@ class GPT2CoreMLConfig(CoreMLConfig):
         input_descs["input_ids"].sequence_length = 128
         return input_descs
 
-    @property
-    def use_legacy_format(self) -> bool:
-        return True
-
     def patch_pytorch_ops(self):
         def _fill(context, node):
             from coremltools.converters.mil import Builder as mb
