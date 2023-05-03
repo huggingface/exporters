@@ -237,6 +237,10 @@ class GPTNeoCoreMLConfig(CoreMLConfig):
         return input_descs
 
 
+class GPTNeoXCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
 class LevitCoreMLConfig(CoreMLConfig):
     modality = "vision"
 

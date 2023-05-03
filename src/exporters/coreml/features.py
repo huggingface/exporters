@@ -253,6 +253,14 @@ class FeaturesManager:
             "text-classification",
             coreml_config_cls="models.gpt_neo.GPTNeoCoreMLConfig",
         ),
+        "gpt_neox": supported_features_mapping(
+            "feature-extraction",
+            #"feature-extraction-with-past",
+            "text-generation",
+            #"text-generation-with-past",
+            "text-classification",
+            coreml_config_cls="models.gpt_neox.GPTNeoXCoreMLConfig",
+        ),
         "levit": supported_features_mapping(
             "feature-extraction", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
