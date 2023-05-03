@@ -57,7 +57,7 @@ class CoreMLConfigTestCase(TestCase):
         self.assertEqual(len(flexible_output), 1)
         self.assertEqual(flexible_output[0]["axis"], 1)
         self.assertEqual(flexible_output[0]["min"], 1)
-        self.assertEqual(flexible_output[0]["max"], 128)
+        self.assertEqual(flexible_output[0]["max"], config.maxSequenceLength)
 
         config = TextCoreMLConfig(None, task="text-classification")
         flexible_outputs = config.get_flexible_outputs()
