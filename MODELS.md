@@ -113,7 +113,7 @@ Legend:
 
 **GPT2 / DistilGPT2**
 
-Needs to be exported with `use_legacy_format=True`. Does not work with flexible sequence length and therefore does not support `use_past`.
+Does not work with flexible sequence length and therefore does not support `use_past`.
 
 - ✅ GPT2Model
 - ➖ GPT2DoubleHeadsModel
