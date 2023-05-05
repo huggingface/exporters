@@ -181,6 +181,18 @@ class CoreMLConfig():
         return common_inputs
 
     @property
+    def inferSequenceLengthFromConfig(self) -> bool:
+        return False
+
+    @property
+    def maxSequenceLength(self) -> int:
+        if self.inferSequenceLengthFromConfig:
+            # Alternatives such as `n_positions` are automatically mapped to `max_position_embeddings`
+            if hasattr(self._config, "max_position_embeddings"):
+                return self._config.max_position_embeddings
+        return 128
+
+    @property
     def _input_descriptions(self) -> "OrderedDict[str, InputDescription]":
         if self.modality in ["text", "audio"] and self.seq2seq == "decoder":
             return OrderedDict(
@@ -232,7 +244,7 @@ class CoreMLConfig():
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, 128),
+                            sequence_length=(1, self.maxSequenceLength),
                         )
                     ),
                     (
@@ -256,7 +268,7 @@ class CoreMLConfig():
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, 128),
+                            sequence_length=(1, self.maxSequenceLength),
                         )
                     ),
                     (
