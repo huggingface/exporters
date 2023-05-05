@@ -245,6 +245,11 @@ class FeaturesManager:
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
         ),
+        "gptj": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            coreml_config_cls="models.gpt2.GPTJCoreMLConfig",
+        ),
         "gpt_neo": supported_features_mapping(
             "feature-extraction",
             #"feature-extraction-with-past",
