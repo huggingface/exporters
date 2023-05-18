@@ -1017,3 +1017,10 @@ class CoreMLConfig():
                 description
             )
         return output_descs
+    
+    @property
+    def short_description(self) -> str:
+        """
+        Short description: name and task.
+        """
+        return f"{self._config.name_or_path} ({self.task})"

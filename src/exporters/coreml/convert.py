@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, List, Union, Mapping
 
 import coremltools as ct
 from coremltools.converters.mil.frontend.torch.torch_op_registry import _TORCH_OPS_REGISTRY
-from coremltools.models.neural_network import flexible_shape_utils
 
 import numpy as np
 
@@ -575,7 +574,13 @@ def export_pytorch(
         if input_desc.is_optional:
             spec.description.input[i].type.isOptional = True
 
-    user_defined_metadata = {}
+    user_defined_metadata = {
+        "co.huggingface.exporters.name": model.name_or_path,
+        "co.huggingface.exporters.task": config.task,
+        "co.huggingface.exporters.architecture": next(iter(model.config.architectures), ""),
+        "co.huggingface.exporters.framework": "pytorch",
+        "co.huggingface.exporters.precision": quantize,
+    }
     if model.config.transformers_version:
         user_defined_metadata["transformers_version"] = model.config.transformers_version
 
@@ -607,6 +612,8 @@ def export_pytorch(
 
     if len(user_defined_metadata) > 0:
         spec.description.metadata.userDefined.update(user_defined_metadata)
+
+    spec.description.metadata.shortDescription = config.short_description
 
     # Reload the model in case any input / output names were changed.
     mlmodel = ct.models.MLModel(mlmodel._spec, weights_dir=mlmodel.weights_dir)
