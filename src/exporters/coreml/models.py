@@ -401,7 +401,10 @@ class T5CoreMLConfig(CoreMLConfig):
                     ),
                 ]
             )
-        return super()._input_descriptions
+        descriptions = super()._input_descriptions
+        if "input_ids" in descriptions:
+            descriptions["input_ids"].sequence_length = 128
+        return descriptions
 
 
 class ViTCoreMLConfig(CoreMLConfig):

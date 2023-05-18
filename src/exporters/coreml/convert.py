@@ -90,7 +90,7 @@ def get_shape(config, input_desc, dummy_input, axis=-1):
     shape = list(default_shape)
 
     # Does the input shape need to be flexible?
-    if config.use_past or config.seq2seq:
+    if config.use_past: #or config.seq2seq:
         #shape[0] = ct.RangeDim()  # batch size  #TODO
         shape[axis] = ct.RangeDim()
         default_shape = None
@@ -160,7 +160,8 @@ def get_input_types(
             input_desc = input_descs["encoder_outputs"]
             shape = list(dummy_inputs["encoder_outputs"][0].shape)
             #shape[0] = ct.RangeDim()  # batch size  #TODO
-            shape[1] = ct.RangeDim()
+            # TODO: only disable if we are using fixed shapes (which could be part of the configuration)
+            # shape[1] = ct.RangeDim()
             input_types.append(
                 ct.TensorType(name=input_desc.name, shape=ct.Shape(shape), dtype=np.float32)
             )

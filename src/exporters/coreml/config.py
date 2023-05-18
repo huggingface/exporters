@@ -794,7 +794,7 @@ class CoreMLConfig():
 
     def _get_max_sequence_length(self, input_desc, default_length):
         if input_desc.sequence_length is None:
-            return default_length
+            return self.maxSequenceLength
         elif isinstance(input_desc.sequence_length, tuple):
             sequence_length = input_desc.sequence_length[-1]
             if sequence_length == -1:
@@ -851,8 +851,12 @@ class CoreMLConfig():
             sequence_length = self._get_max_sequence_length(input_desc, 64)
 
             # don't want encoder and decoder to use same sequence length
+            # (unless shapes are fixed)
             if self.seq2seq == "decoder":
-                encoder_sequence_length = sequence_length + 7
+                if isinstance(input_desc.sequence_length, tuple):
+                    encoder_sequence_length = sequence_length + 7
+                else:
+                    encoder_sequence_length = sequence_length
 
             if self.task == "multiple-choice":
                 shape = (batch_size, self._config.num_labels, sequence_length)
