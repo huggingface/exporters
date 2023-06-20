@@ -263,6 +263,13 @@ class GPTNeoCoreMLConfig(CoreMLConfig):
 class GPTNeoXCoreMLConfig(CoreMLConfig):
     modality = "text"
 
+    @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        input_descs = super().inputs
+        # Flexible shapes are incompatible with gather (https://github.com/huggingface/exporters/issues/43)
+        input_descs["input_ids"].sequence_length = 128
+        return input_descs
+
 
 class LevitCoreMLConfig(CoreMLConfig):
     modality = "vision"
