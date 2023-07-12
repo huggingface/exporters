@@ -245,6 +245,12 @@ class FeaturesManager:
             "token-classification",
             coreml_config_cls="models.gpt2.GPT2CoreMLConfig",
         ),
+        "gpt_bigcode": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            "text-classification",
+            coreml_config_cls="models.gpt_bigcode.GPTBigcodeCoreMLConfig",
+        ),
         "gptj": supported_features_mapping(
             "feature-extraction",
             "text-generation",
