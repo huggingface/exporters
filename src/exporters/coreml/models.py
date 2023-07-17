@@ -226,6 +226,67 @@ class GPT2CoreMLConfig(CoreMLConfig):
         return {"full": _fill}
 
 
+class GPTBigcodeCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    @property
+    def inputs(self) -> OrderedDict[str, InputDescription]:
+        input_descs = super().inputs
+        input_descs["input_ids"].sequence_length = 128
+        return input_descs
+
+    @property
+    def outputs(self) -> "OrderedDict[str, OutputDescription]":
+        return OrderedDict(
+            [
+                (
+                    "logits",
+                    OutputDescription(
+                        "logits",
+                        "Logits for each vocabulary token (before softmax)",
+                        do_softmax=False,
+                    )
+                ),
+            ]
+        )
+
+    def patch_pytorch_ops(self):
+        # Until https://github.com/apple/coremltools/pull/1911 is released
+        def gelu(context, node):
+            from coremltools.converters.mil import Builder as mb
+
+            inputs = [context[name] for name in node.inputs]
+            assert len(inputs) in (1, 2)
+            if len(inputs) == 2:
+                approximate = inputs[1].val
+                if approximate == "tanh":
+                    approximate = "TANH_APPROXIMATION"
+                elif approximate == "none":
+                    approximate = "EXACT"
+            else:
+                approximate = None
+            res = mb.gelu(x=inputs[0], mode=approximate, name=node.name)
+            context.add(res)
+
+        # Until https://github.com/apple/coremltools/pull/1910 is released
+        def mul(context, node):
+            from coremltools.converters.mil import Builder as mb
+            from coremltools.converters.mil.mil import types
+            from coremltools.converters.mil.mil.ops.defs._utils import promote_input_dtypes
+
+            inputs = [context[name] for name in node.inputs]
+            if len(inputs) != 2:
+                raise ValueError(f"Expected two inputs for `mul`, got {len(inputs)} instead.")
+            x, y = promote_input_dtypes(inputs)
+            if types.is_bool(x.dtype) and types.is_bool(y.dtype):
+                res = mb.logical_and(x=x, y=y, name=node.name)
+            else:
+                res = mb.mul(x=x, y=y, name=node.name)
+            context.add(res)
+
+        return {"gelu": gelu, "mul": mul}
+
+
 class GPTJCoreMLConfig(CoreMLConfig):
     modality = "text"
 
