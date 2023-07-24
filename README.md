@@ -18,13 +18,15 @@ limitations under the License.
 
 👷 **WORK IN PROGRESS** 👷
 
-This package lets you export 🤗 Transformers models to Core ML and TensorFlow Lite.
+This package lets you export 🤗 Transformers models to Core ML.
+
+> For converting models to TFLite, we recommend using [Optimum](https://huggingface.co/docs/optimum/exporters/tflite/usage_guides/export_a_model).
 
 ## When to use 🤗 Exporters
 
-🤗 Transformers models are implemented in PyTorch, TensorFlow, or JAX. However, for deployment you might want to use a different framework such as Core ML or TensorFlow Lite. This library makes it easy to convert Transformers models to these formats.
+🤗 Transformers models are implemented in PyTorch, TensorFlow, or JAX. However, for deployment you might want to use a different framework such as Core ML. This library makes it easy to convert Transformers models to this format.
 
-The aim of the Exporters package is to be more convenient than writing your own conversion script with *coremltools* or *TFLiteConverter*, and to be tightly integrated with the 🤗 Transformers library and the Hugging Face Hub.
+The aim of the Exporters package is to be more convenient than writing your own conversion script with *coremltools* and to be tightly integrated with the 🤗 Transformers library and the Hugging Face Hub.
 
 For an even more convenient approach, `Exporters` powers a [no-code transformers to Core ML conversion Space](https://huggingface.co/spaces/huggingface-projects/transformers-to-coreml). You can try it out without installing anything to check whether the model you are interested in can be converted. If conversion succeeds, the converted Core ML weights will be pushed to the Hub. For additional flexibility and details about the conversion process, please read on.
 
@@ -509,17 +511,9 @@ Known models that need to be exported with `use_legacy_format=True` are: GPT2, D
 
 Using flexible input sequence length with GPT2 or GPT-Neo causes the converter to be extremely slow and allocate over 200 GB of RAM. This is clearly a bug in coremltools or the Core ML framework, as the allocated memory is never used (the computer won't start swapping). After many minutes, the conversion does succeed, but the model may not be 100% correct. Loading the model afterwards takes a very long time and makes similar memory allocations. Likewise for making predictions. While theoretically the conversion succeeds (if you have enough patience), the model is not really usable like this.
 
-## TensorFlow Lite
-
-The `exporters.tflite` module uses the [TFLiteConverter](https://www.tensorflow.org/lite/convert/) package to perform the conversion from TensorFlow to TF Lite format.
-
-Note: Only TensorFlow models can be exported to TF Lite. PyTorch models are not supported.
-
-TODO: TFLite support is not implemented yet.
-
 ## Pushing the model to the Hugging Face Hub
 
-The [Hugging Face Hub](https://huggingface.co) can also host your Core ML and TF Lite models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
+The [Hugging Face Hub](https://huggingface.co) can also host your Core ML models. You can use the [`huggingface_hub` package](https://huggingface.co/docs/huggingface_hub/main/en/index) to upload the converted model to the Hub from Python.
 
 First log in to your Hugging Face account account with the following command:
 
