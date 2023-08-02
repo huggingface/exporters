@@ -11,10 +11,10 @@ setup(
     package_dir={"": "src"},
     packages=find_packages("src"),
     include_package_data=True,
-    python_requires=">=3.6.0",
+    python_requires=">=3.8.0",
     install_requires=[
-        "transformers >= 4.26.1",
-        "coremltools >= 5.0",
+        "transformers >= 4.29.2",
+        "coremltools >= 7.0b1",
     ],
     classifiers=[
     ],
