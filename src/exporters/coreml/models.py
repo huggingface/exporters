@@ -306,6 +306,10 @@ class LevitCoreMLConfig(CoreMLConfig):
         return 0.01
 
 
+class LlamaCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+
 class M2M100CoreMLConfig(CoreMLConfig):
     modality = "text"
 
