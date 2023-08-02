@@ -440,7 +440,11 @@ class CoreMLConfig():
                 ]
             )
 
-        if self.task == "masked-im":
+        if self.task in [
+            "masked-im",
+            "text-generation",
+            "text2text-generation",
+        ]:
             return OrderedDict(
                 [
                     (
@@ -455,10 +459,8 @@ class CoreMLConfig():
             )
 
         if self.task in [
-            "text-generation",
             "automatic-speech-recognition",
             "fill-mask",
-            "text2text-generation",
             "speech-seq2seq",
             "token-classification"
         ]:
