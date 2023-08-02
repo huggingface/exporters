@@ -90,7 +90,7 @@ def get_shape(config, input_desc, dummy_input, axis=-1):
     shape = list(default_shape)
 
     # Does the input shape need to be flexible?
-    if config.use_past: #or config.seq2seq:
+    if config.use_past:
         #shape[0] = ct.RangeDim()  # batch size  #TODO
         shape[axis] = ct.RangeDim()
         default_shape = None

@@ -178,7 +178,7 @@ class DistilBertCoreMLConfig(CoreMLConfig):
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, 128),
+                            sequence_length=self.input_ids_sequence_length,
                         )
                     ),
                     (
@@ -200,13 +200,6 @@ class ErnieCoreMLConfig(CoreMLConfig):
 
 class GPT2CoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
-        input_descs = super().inputs
-        # TODO: coremltools blows up and uses infinite RAM with flexible input shape
-        input_descs["input_ids"].sequence_length = 128
-        return input_descs
 
     def patch_pytorch_ops(self):
         def _fill(context, node):
@@ -251,13 +244,6 @@ class GPTJCoreMLConfig(CoreMLConfig):
 
 class GPTNeoCoreMLConfig(CoreMLConfig):
     modality = "text"
-
-    @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
-        input_descs = super().inputs
-        # TODO: coremltools blows up and uses infinite RAM with flexible input shape
-        input_descs["input_ids"].sequence_length = 128
-        return input_descs
 
 
 class GPTNeoXCoreMLConfig(CoreMLConfig):
@@ -375,7 +361,7 @@ class T5CoreMLConfig(CoreMLConfig):
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, 128),
+                            sequence_length=self.input_ids_sequence_length,
                         )
                     ),
                     (
@@ -401,10 +387,7 @@ class T5CoreMLConfig(CoreMLConfig):
                     ),
                 ]
             )
-        descriptions = super()._input_descriptions
-        if "input_ids" in descriptions:
-            descriptions["input_ids"].sequence_length = 128
-        return descriptions
+        return super()._input_descriptions
 
 
 class ViTCoreMLConfig(CoreMLConfig):
