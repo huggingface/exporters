@@ -181,16 +181,42 @@ class CoreMLConfig():
         return common_inputs
 
     @property
-    def inferSequenceLengthFromConfig(self) -> bool:
+    def infer_sequence_length_from_config(self) -> bool:
+        """When True, will use the max sequence length from the model configuration."""
         return False
 
     @property
-    def maxSequenceLength(self) -> int:
-        if self.inferSequenceLengthFromConfig:
+    def max_sequence_length(self) -> int:
+        """
+        Retrieve the max sequence length from the model configuration, or use a hardcoded value (currently 128).
+        This can be subclassed to support custom lengths.
+        """
+        if self.infer_sequence_length_from_config:
             # Alternatives such as `n_positions` are automatically mapped to `max_position_embeddings`
             if hasattr(self._config, "max_position_embeddings"):
                 return self._config.max_position_embeddings
         return 128
+
+    @property
+    def use_flexible_shapes(self) -> bool:
+        """
+        When True, inputs are allowed to use sequence lengths of `1` up to `maxSequenceLength`.
+        Unfortunately, this currently prevents the model from running on GPU or the Neural Engine.
+        We default to `False`, but this can be overridden in custom configurations.
+        """
+        return False
+
+    @property
+    def input_ids_sequence_length(self) -> Union[Tuple, int]:
+        """
+        Sequence lengths supported for the `input_ids`.
+
+        - When returning a tuple, flexible shapes will be used. The tuple must contain two items,
+        representing the minimum and maximum possible sequence lengths.
+        - When returning an `int`, a fixed sequence length will be used.
+        """
+        return (1, self.max_sequence_length) if self.use_flexible_shapes else self.max_sequence_length
+
 
     @property
     def _input_descriptions(self) -> "OrderedDict[str, InputDescription]":
@@ -244,7 +270,7 @@ class CoreMLConfig():
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, self.maxSequenceLength),
+                            sequence_length=self.input_ids_sequence_length,
                         )
                     ),
                     (
@@ -268,7 +294,7 @@ class CoreMLConfig():
                         InputDescription(
                             "input_ids",
                             "Indices of input sequence tokens in the vocabulary",
-                            sequence_length=(1, self.maxSequenceLength),
+                            sequence_length=self.input_ids_sequence_length,
                         )
                     ),
                     (
@@ -794,7 +820,7 @@ class CoreMLConfig():
 
     def _get_max_sequence_length(self, input_desc, default_length):
         if input_desc.sequence_length is None:
-            return default_length
+            return self.max_sequence_length
         elif isinstance(input_desc.sequence_length, tuple):
             sequence_length = input_desc.sequence_length[-1]
             if sequence_length == -1:
@@ -851,8 +877,12 @@ class CoreMLConfig():
             sequence_length = self._get_max_sequence_length(input_desc, 64)
 
             # don't want encoder and decoder to use same sequence length
+            # (unless shapes are fixed)
             if self.seq2seq == "decoder":
-                encoder_sequence_length = sequence_length + 7
+                if isinstance(input_desc.sequence_length, tuple):
+                    encoder_sequence_length = sequence_length + 7
+                else:
+                    encoder_sequence_length = sequence_length
 
             if self.task == "multiple-choice":
                 shape = (batch_size, self._config.num_labels, sequence_length)
