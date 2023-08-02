@@ -222,27 +222,6 @@ class GPT2CoreMLConfig(CoreMLConfig):
 class GPTBigcodeCoreMLConfig(CoreMLConfig):
     modality = "text"
 
-    @property
-    def inputs(self) -> OrderedDict[str, InputDescription]:
-        input_descs = super().inputs
-        input_descs["input_ids"].sequence_length = 128
-        return input_descs
-
-    @property
-    def outputs(self) -> "OrderedDict[str, OutputDescription]":
-        return OrderedDict(
-            [
-                (
-                    "logits",
-                    OutputDescription(
-                        "logits",
-                        "Logits for each vocabulary token (before softmax)",
-                        do_softmax=False,
-                    )
-                ),
-            ]
-        )
-
     def patch_pytorch_ops(self):
         # Until https://github.com/apple/coremltools/pull/1911 is released
         def gelu(context, node):
