@@ -275,6 +275,12 @@ class FeaturesManager:
         "levit": supported_features_mapping(
             "feature-extraction", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
+        "llama": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            "text-classification",
+            coreml_config_cls="models.llama.LlamaCoreMLConfig",
+        ),
         "m2m_100": supported_features_mapping(
             "feature-extraction",
             "text2text-generation",
