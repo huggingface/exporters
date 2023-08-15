@@ -724,7 +724,7 @@ class CoreMLConfig():
         If `True`, the converter will produce a model in the older NeuralNetwork format.
         By default, the ML Program format will be used.
         """
-        return False
+        return True 
 
     def patch_pytorch_ops(self) -> Mapping[str, Callable]:
         """
