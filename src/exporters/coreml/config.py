@@ -183,7 +183,7 @@ class CoreMLConfig():
     @property
     def infer_sequence_length_from_config(self) -> bool:
         """When True, will use the max sequence length from the model configuration."""
-        return False
+        return True
 
     @property
     def max_sequence_length(self) -> int:
