@@ -29,6 +29,13 @@ from transformers.utils import (
 from .config import CoreMLConfig
 from ..utils import logging
 
+from model import magnitude_ranked_mask #coremltools\coremltools\optimize\torch\pruning\_utils.py
+import torch.nn.utils.prune as prune #for using magnitude_ranked_mask func
+
+
+
+from coremltools.optimize.torch.pruning import MagnitudePruner, MagnitudePrunerConfig #pruner fr
+
 
 if is_torch_available():
     from transformers.modeling_utils import PreTrainedModel
@@ -549,7 +556,31 @@ def export_pytorch(
                 restore_ops[name] = _TORCH_OPS_REGISTRY[name]
                 del _TORCH_OPS_REGISTRY[name]
             _TORCH_OPS_REGISTRY[name] = func
+# Prune the model
+    for name, module in model.named_modules():
+        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
+            mask = magnitude_ranked_mask(module.weight, pruning_ratio=0.2) # You can adjust the pruning_ratio
+            prune.custom_from_mask(module, name='weight', mask=mask)
+            
+    # Load the pruning configuration - may go here or need to be right after declaration of export_pytorch()
+    config = MagnitudePrunerConfig.from_yaml("path_to_config.yaml")  # Adjust the path to your config file
+    pruner = MagnitudePruner(model, config)
 
+    # Insert pruning layers in the model
+    model = pruner.prepare()
+
+    # If you want to fine-tune the model after pruning (optional)
+    #for inputs, labels in training_data:  # Adjust 'training_data' to your actual dataset variable
+        #output = model(inputs)
+        #loss = loss_function(output, labels)  # Adjust 'loss_function' to your actual loss function
+        #loss.backward()
+        #optimizer.step()
+        #pruner.step()
+
+    # Commit pruning masks to model parameters
+    pruner.finalize(inplace=True)
+
+    
     mlmodel = ct.convert(
         traced_model,
         inputs=input_tensors,
