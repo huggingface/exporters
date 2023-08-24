@@ -516,7 +516,29 @@ def export_pytorch(
 
     # Put the inputs in the order from the config.
     example_input = [dummy_inputs[key][0] for key in list(config.inputs.keys())]
+    
+    from coremltools.optimize.torch.pruning import PolynomialDecayScheduler
 
+    scheduler = PolynomialDecayScheduler(update_steps=list(range(0, 900, 100)))
+
+    from coremltools.optimize.torch.pruning import (
+        MagnitudePruner,
+        MagnitudePrunerConfig,
+        ModuleMagnitudePrunerConfig,
+    )
+
+    conv_config = ModuleMagnitudePrunerConfig(target_sparsity=0.7)
+    linear_config = ModuleMagnitudePrunerConfig(target_sparsity=0.8)
+
+    pruning_config = MagnitudePrunerConfig().set_module_type(torch.nn.Conv2d, conv_config)
+    pruning_config = pruning_config.set_module_type(torch.nn.Linear, linear_config)
+
+    pruner = MagnitudePruner(model, pruning_config)
+    pruner.prepare(inplace=True)
+    pruner.finalize(inplace=True)
+    print("pruned")
+    #prunes model utilizing this. believe it does work, but I havent gotten a complete model yet because of memory error. 
+    
     wrapper = Wrapper(preprocessor, model, config).eval()
 
     # Running the model once with gradients disabled prevents an error during JIT tracing
@@ -556,30 +578,6 @@ def export_pytorch(
                 restore_ops[name] = _TORCH_OPS_REGISTRY[name]
                 del _TORCH_OPS_REGISTRY[name]
             _TORCH_OPS_REGISTRY[name] = func
-# Prune the model
-    for name, module in model.named_modules():
-        if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear):
-            mask = magnitude_ranked_mask(module.weight, pruning_ratio=0.2) # You can adjust the pruning_ratio
-            prune.custom_from_mask(module, name='weight', mask=mask)
-            
-    # Load the pruning configuration - may go here or need to be right after declaration of export_pytorch()
-    config = MagnitudePrunerConfig.from_yaml("path_to_config.yaml")  # Adjust the path to your config file
-    pruner = MagnitudePruner(model, config)
-
-    # Insert pruning layers in the model
-    model = pruner.prepare()
-
-    # If you want to fine-tune the model after pruning (optional)
-    #for inputs, labels in training_data:  # Adjust 'training_data' to your actual dataset variable
-        #output = model(inputs)
-        #loss = loss_function(output, labels)  # Adjust 'loss_function' to your actual loss function
-        #loss.backward()
-        #optimizer.step()
-        #pruner.step()
-
-    # Commit pruning masks to model parameters
-    pruner.finalize(inplace=True)
-
     
     mlmodel = ct.convert(
         traced_model,
