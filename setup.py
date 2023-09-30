@@ -14,7 +14,7 @@ setup(
     python_requires=">=3.8.0",
     install_requires=[
         "transformers >= 4.30.0",
-        "coremltools >= 7.0b2",
+        "coremltools >= 7",
     ],
     classifiers=[
     ],
