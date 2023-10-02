@@ -93,7 +93,7 @@ def main():
         "--framework", type=str, choices=["pt", "tf"], default="pt", help="The framework to use for the Core ML export."
     )
     parser.add_argument(
-        "--quantize", type=str, choices=["float32", "float16"], default="float32", help="Quantization option for the model weights."
+        "--quantize", type=str, choices=["float32", "float16"], default="float16", help="Quantization option for the model weights."
     )
     parser.add_argument(
         "--compute_units", type=str, choices=["all", "cpu_and_gpu", "cpu_only", "cpu_and_ne"], default="all", help="Optimize the model for CPU, GPU, and/or Neural Engine."
