@@ -236,6 +236,12 @@ Does not work with flexible sequence length and therefore does not support `use_
 - ✅ MobileViTForImageClassification
 - ✅ MobileViTForSemanticSegmentation
 
+**MobileViTv2**
+
+- ✅ MobileViTV2Model
+- ✅ MobileViTV2ForImageClassification
+- ✅ MobileViTV2ForSemanticSegmentation
+
 **SegFormer**
 
 - ✅ SegformerModel
