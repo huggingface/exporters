@@ -74,6 +74,7 @@ PYTORCH_EXPORT_MODELS = {
     ("levit", "facebook/levit-128S"),
     ("mobilebert", "google/mobilebert-uncased"),
     ("mobilevit", "apple/mobilevit-small"),
+    ("mobilevitv2", "apple/mobilevitv2-1.0-imagenet1k-256"),
     ("segformer", "nvidia/mit-b0"),
     ("squeezebert", "squeezebert/squeezebert-uncased"),
     ("t5", "t5-small"),

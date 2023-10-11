@@ -307,6 +307,12 @@ class FeaturesManager:
             "semantic-segmentation",
             coreml_config_cls="models.mobilevit.MobileViTCoreMLConfig",
         ),
+        "mobilevitv2": supported_features_mapping(
+            "feature-extraction",
+            "image-classification",
+            "semantic-segmentation",
+            coreml_config_cls="models.mobilevit.MobileViTCoreMLConfig",
+        ),
         "mvp": supported_features_mapping(
             "feature-extraction",
             "text2text-generation",
