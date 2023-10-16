@@ -291,6 +291,12 @@ class FeaturesManager:
             "text2text-generation",
             coreml_config_cls="models.marian.MarianMTCoreMLConfig",
         ),
+        "mistral": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            "text-classification",
+            coreml_config_cls="models.mistral.MistralCoreMLConfig",
+        ),
         "mobilebert": supported_features_mapping(
             "feature-extraction",
             "fill-mask",
