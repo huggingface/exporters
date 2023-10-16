@@ -282,6 +282,24 @@ class MarianMTCoreMLConfig(CoreMLConfig):
     modality = "text"
 
 
+class MistralCoreMLConfig(CoreMLConfig):
+    modality = "text"
+
+    def patch_pytorch_ops(self):
+        # Workaround for https://github.com/apple/coremltools/pull/2017
+        def log(context, node):
+            from coremltools.converters.mil import Builder as mb
+            from coremltools.converters.mil.mil import types
+
+            a = context[node.inputs[0]]
+            if types.is_int(a.dtype):
+                a = mb.cast(x=a, dtype="fp32")
+            x = mb.log(x=a, name=node.name)
+            context.add(x)
+
+        return {"log": log}
+
+
 class MobileBertCoreMLConfig(CoreMLConfig):
     modality = "text"
 

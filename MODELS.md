@@ -121,6 +121,10 @@ Does not work with flexible sequence length and therefore does not support `use_
 - ✅ GPT2ForTokenClassification
 - ⚠️ GPT2LMHeadModel (no `use_past`)
 
+**Llama**
+
+- ✅ LlamaForCausalLM
+
 **M2M100**
 
 - ⚠️ M2M100Model (currently supports only `use_past=False`)
@@ -131,6 +135,10 @@ Does not work with flexible sequence length and therefore does not support `use_
 - ⚠️ MarianModel (currently supports only `use_past=False`)
 - ? MarianForCausalLM
 - ⚠️ MarianMTModel (currently supports only `use_past=False`)
+
+**Mistral**
+
+- ✅ MistralForCausalLM
 
 **MobileBERT**
 
