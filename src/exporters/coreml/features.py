@@ -236,6 +236,12 @@ class FeaturesManager:
             "text-generation-with-past",
             coreml_config_cls="models.ernie.ErnieCoreMLConfig",
         ),
+        "falcon": supported_features_mapping(
+            "feature-extraction",
+            "text-generation",
+            "text-classification",
+            coreml_config_cls="models.falcon.FalconCoreMLConfig",
+        ),
         "gpt2": supported_features_mapping(
             "feature-extraction",
             #"feature-extraction-with-past",
