@@ -796,7 +796,7 @@ class CoreMLConfig():
             image_height = image_size["height"]
             image_width = image_size["width"]
 
-        pixel_values = np.random.randint(0, 256, (image_width, image_height, 3), dtype=np.uint8)
+        pixel_values = np.random.randint(0, 256, (image_height, image_width, 3), dtype=np.uint8)
         coreml_value = Image.fromarray(pixel_values)
 
         # Hacky workaround: the Core ML input is the full-sized image, and so
