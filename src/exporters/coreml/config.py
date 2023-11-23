@@ -183,7 +183,7 @@ class CoreMLConfig():
     @property
     def infer_sequence_length_from_config(self) -> bool:
         """When True, will use the max sequence length from the model configuration."""
-        return False
+        return True
 
     @property
     def max_sequence_length(self) -> int:
@@ -724,7 +724,7 @@ class CoreMLConfig():
         If `True`, the converter will produce a model in the older NeuralNetwork format.
         By default, the ML Program format will be used.
         """
-        return False
+        return True 
 
     def patch_pytorch_ops(self) -> Mapping[str, Callable]:
         """

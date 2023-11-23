@@ -29,6 +29,13 @@ from transformers.utils import (
 from .config import CoreMLConfig
 from ..utils import logging
 
+from model import magnitude_ranked_mask #coremltools\coremltools\optimize\torch\pruning\_utils.py
+import torch.nn.utils.prune as prune #for using magnitude_ranked_mask func
+
+
+
+from coremltools.optimize.torch.pruning import MagnitudePruner, MagnitudePrunerConfig #pruner fr
+
 
 if is_torch_available():
     from transformers.modeling_utils import PreTrainedModel
@@ -509,7 +516,29 @@ def export_pytorch(
 
     # Put the inputs in the order from the config.
     example_input = [dummy_inputs[key][0] for key in list(config.inputs.keys())]
+    
+    from coremltools.optimize.torch.pruning import PolynomialDecayScheduler
 
+    scheduler = PolynomialDecayScheduler(update_steps=list(range(0, 900, 100)))
+
+    from coremltools.optimize.torch.pruning import (
+        MagnitudePruner,
+        MagnitudePrunerConfig,
+        ModuleMagnitudePrunerConfig,
+    )
+
+    conv_config = ModuleMagnitudePrunerConfig(target_sparsity=0.7)
+    linear_config = ModuleMagnitudePrunerConfig(target_sparsity=0.8)
+
+    pruning_config = MagnitudePrunerConfig().set_module_type(torch.nn.Conv2d, conv_config)
+    pruning_config = pruning_config.set_module_type(torch.nn.Linear, linear_config)
+
+    pruner = MagnitudePruner(model, pruning_config)
+    pruner.prepare(inplace=True)
+    pruner.finalize(inplace=True)
+    print("pruned")
+    #prunes model utilizing this. believe it does work, but I havent gotten a complete model yet because of memory error. 
+    
     wrapper = Wrapper(preprocessor, model, config).eval()
 
     # Running the model once with gradients disabled prevents an error during JIT tracing
@@ -549,7 +578,7 @@ def export_pytorch(
                 restore_ops[name] = _TORCH_OPS_REGISTRY[name]
                 del _TORCH_OPS_REGISTRY[name]
             _TORCH_OPS_REGISTRY[name] = func
-
+    
     mlmodel = ct.convert(
         traced_model,
         inputs=input_tensors,
