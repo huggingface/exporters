@@ -80,6 +80,7 @@ PYTORCH_EXPORT_MODELS = {
     ("t5", "t5-small"),
     ("vit", "google/vit-base-patch16-224"),
     ("yolos", "hustvl/yolos-tiny"),
+    ("efficientnet", "google/efficientnet-b1"),
 }
 
 PYTORCH_EXPORT_WITH_PAST_MODELS = {
