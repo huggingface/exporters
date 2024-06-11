@@ -348,6 +348,63 @@ class GPTNeoXCoreMLConfig(CoreMLConfig):
         return input_descs
 
 
+class LayoutLMv3CoreMLConfig(CoreMLConfig):
+    modality = "multimodal"
+
+    @property
+    def outputs(self) -> OrderedDict[str, OutputDescription]:
+        output_descs = super().outputs
+        self._add_pooler_output(output_descs)
+        return output_descs
+    
+    def patch_pytorch_ops(self):
+        def clip(context, node):
+            from coremltools.converters.mil import Builder as mb
+            from coremltools.converters.mil.frontend.torch.ops import _get_inputs
+            from coremltools.converters.mil.mil.var import Var
+            import numpy as _np
+            from coremltools.converters.mil.mil import types
+            from coremltools.converters.mil.mil.ops.defs._utils import promote_input_dtypes
+            inputs = _get_inputs(context, node, expected=[1,2,3])
+            x = inputs[0]
+            min_val = inputs[1] if (len(inputs) > 1 and inputs[1]) else mb.const(val=_np.finfo(_np.float32).min)
+            max_val = inputs[2] if (len(inputs) > 2 and inputs[2]) else mb.const(val=_np.finfo(_np.float32).max)
+
+            if isinstance(min_val, Var) and isinstance(max_val, Var) and min_val.val >= max_val.val:
+                # When min >= max, PyTorch sets all values to max.
+                context.add(mb.fill(shape=mb.shape(x=x), value=max_val.val, name=node.name))
+                return
+
+            is_input_int = types.is_int(x.dtype)
+            if not types.is_float(x.dtype):
+                # The `mb.clip` op requires parameters from type domain ['fp16', 'fp32'].
+                x = mb.cast(x=x, dtype="fp32")
+            x, min_val, max_val = promote_input_dtypes([x, min_val, max_val])
+            if is_input_int:
+                clip_res = mb.clip(x=x, alpha=min_val, beta=max_val)
+                context.add(mb.cast(x=clip_res, dtype="int32", name=node.name))
+            else:
+                context.add(mb.clip(x=x, alpha=min_val, beta=max_val, name=node.name))
+
+        def one_hot(context, node):
+            from coremltools.converters.mil import Builder as mb
+            from coremltools.converters.mil.frontend.torch.ops import _get_inputs
+            from coremltools.converters.mil.mil import types
+            from coremltools.converters.mil.mil.ops.defs._utils import promote_input_dtypes
+            inputs = _get_inputs(context, node, expected=[2,3])
+            indices = inputs[0]
+            num_classes = inputs[1]
+
+            if not types.is_int(indices.dtype):
+                indices = mb.cast(x=indices, dtype="int32")
+            if not types.is_int(num_classes.dtype):
+                num_classes = mb.cast(x=num_classes, dtype="int32")
+            indices, num_classes = promote_input_dtypes([indices, num_classes])
+            one_hot_res = mb.one_hot(indices=indices, one_hot_vector_size=num_classes)
+            context.add(one_hot_res, node.name)
+
+        return {"clip": clip, "one_hot": one_hot}
+
 class LevitCoreMLConfig(CoreMLConfig):
     modality = "vision"
 

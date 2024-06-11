@@ -254,6 +254,63 @@ def get_input_types(
                 )
             )
 
+    elif config.modality == "multimodal":
+        input_ids_name = "input_ids"
+        attention_mask_name = "attention_mask"
+
+        input_desc = input_descs[input_ids_name]
+        dummy_input = dummy_inputs[input_ids_name]
+        shape = get_shape(config, input_desc, dummy_input)
+        input_types.append(
+            ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+        )
+
+        if attention_mask_name in input_descs:
+            input_desc = input_descs[attention_mask_name]
+            input_types.append(
+                ct.TensorType(name=input_desc.name, shape=shape, dtype=np.int32)
+            )
+        else:
+            logger.info(f"Skipping {attention_mask_name} input")
+
+        bbox_desc = input_descs["bbox"]
+        dummy_input = dummy_inputs["bbox"]
+        shape = get_shape(config, bbox_desc, dummy_input)
+        input_types.append(
+            ct.TensorType(name=bbox_desc.name, shape=shape, dtype=np.int32)
+        )
+
+        if hasattr(preprocessor.image_processor, "image_mean"):
+            bias = [
+                -preprocessor.image_processor.image_mean[0],
+                -preprocessor.image_processor.image_mean[1],
+                -preprocessor.image_processor.image_mean[2],
+            ]
+        else:
+            bias = [0.0, 0.0, 0.0]
+
+        # If the stddev values are all equal, they can be folded into `bias` and
+        # `scale`. If not, Wrapper will insert an additional division operation.
+        if hasattr(preprocessor.image_processor, "image_std") and is_image_std_same(preprocessor.image_processor):
+            bias[0] /= preprocessor.image_processor.image_std[0]
+            bias[1] /= preprocessor.image_processor.image_std[1]
+            bias[2] /= preprocessor.image_processor.image_std[2]
+            scale = 1.0 / (preprocessor.image_processor.image_std[0] * 255.0)
+        else:
+            scale = 1.0 / 255
+
+        input_desc = input_descs["pixel_values"]
+        input_types.append(
+            ct.ImageType(
+                name=input_desc.name,
+                shape=dummy_inputs["pixel_values"][0].shape,
+                scale=scale,
+                bias=bias,
+                color_layout=input_desc.color_layout or "RGB",
+                channel_first=True,
+            )
+        )
+
     elif config.modality == "audio":
         if "input_features" in input_descs:
             input_desc = input_descs["input_features"]

@@ -327,6 +327,40 @@ class CoreMLConfig():
                     ),
                 ]
             )
+        
+        if self.modality == "multimodal" and self.task in [
+            "token-classification",
+        ]:
+            return OrderedDict(
+                [
+                    (
+                        "input_ids",
+                        InputDescription(
+                            "input_ids",
+                            "Indices of input sequence tokens in the vocabulary",
+                            sequence_length=self.input_ids_sequence_length,
+                        )
+                    ),
+                    (
+                        "bbox",
+                        InputDescription(
+                            "bbox",
+                            "Bounding Boxes"
+                        )
+                    ),
+                    (
+                        "attention_mask",
+                        InputDescription(
+                            "attention_mask",
+                            "Mask to avoid performing attention on padding token indices (1 = not masked, 0 = masked)",
+                        )
+                    ),
+                    (
+                        "pixel_values",
+                        InputDescription("image", "Input image", color_layout="RGB")
+                    ),
+                ]
+            )
 
         if self.task == "image-classification":
             return OrderedDict(
@@ -930,6 +964,32 @@ class CoreMLConfig():
                 num_patches = (self._config.image_size // self._config.patch_size) ** 2
                 bool_masked_pos = np.random.randint(low=0, high=2, size=(1, num_patches)).astype(bool)
                 dummy_inputs["bool_masked_pos"] = (bool_masked_pos, bool_masked_pos.astype(np.int32))
+
+        elif self.modality == "multimodal":
+            input_ids_name = "input_ids"
+            attention_mask_name = "attention_mask"
+
+            input_desc = input_descs[input_ids_name]
+
+            # the dummy input will always use the maximum sequence length
+            sequence_length = self._get_max_sequence_length(input_desc, 64)
+
+            shape = (batch_size, sequence_length)
+
+            input_ids = np.random.randint(0, preprocessor.tokenizer.vocab_size, shape)
+            dummy_inputs[input_ids_name] = (input_ids, input_ids.astype(np.int32))
+
+            if attention_mask_name in input_descs:
+                attention_mask = np.ones(shape, dtype=np.int64)
+                dummy_inputs[attention_mask_name] = (attention_mask, attention_mask.astype(np.int32))
+
+            bbox_shape = (batch_size, sequence_length, 4)
+            bboxes = np.random.randint(low=0, high=1000, size=bbox_shape).astype(np.int64)
+            dummy_inputs["bbox"] = (bboxes, bboxes.astype(np.int32))
+
+            dummy_inputs["pixel_values"] = self._generate_dummy_image(preprocessor.image_processor, framework)
+
+            print(dummy_inputs)
 
         elif self.modality == "audio" and isinstance(preprocessor, ProcessorMixin):
             if self.seq2seq != "decoder":

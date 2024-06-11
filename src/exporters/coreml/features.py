@@ -278,6 +278,10 @@ class FeaturesManager:
             "text-classification",
             coreml_config_cls="models.gpt_neox.GPTNeoXCoreMLConfig",
         ),
+        "layoutlmv3": supported_features_mapping(
+            "token-classification",
+            coreml_config_cls="models.layoutlmv3.LayoutLMv3CoreMLConfig",
+        ),
         "levit": supported_features_mapping(
             "feature-extraction", "image-classification", coreml_config_cls="models.levit.LevitCoreMLConfig"
         ),
