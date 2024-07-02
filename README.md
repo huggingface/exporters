@@ -227,7 +227,7 @@ Additional arguments that can be provided:
 
 - `--preprocessor <value>`: Which type of preprocessor to use. `auto` tries to automatically detect it. Possible values are: `auto` (the default), `tokenizer`, `feature_extractor`, `processor`.
 - `--atol <number>`: The absolute difference tolerence used when validating the model. The default value is 1e-4.
-- `--quantize <value>`: Whether to quantize the model weights. The possible quantization options are: `float32` for no quantization (the default) or `float16` for 16-bit floating point.
+- `--quantize <value>`: Whether to quantize the model weights. The possible quantization options are: `float32` for no quantization or `float16` for 16-bit floating point (the default).
 - `--compute_units <value>`: Whether to optimize the model for CPU, GPU, and/or Neural Engine. Possible values are: `all` (the default), `cpu_and_gpu`, `cpu_only`, `cpu_and_ne`.
 
 ### Using the exported model
